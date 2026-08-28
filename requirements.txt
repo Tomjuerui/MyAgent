@@ -7,6 +7,7 @@ langchain-mcp-adapters>=0.3.0
 fastmcp>=2.0.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
+sse-starlette>=2.0.0
 motor>=3.5.0
 pymongo>=4.8.0
 httpx>=0.28.0
