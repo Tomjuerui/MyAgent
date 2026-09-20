@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { ChatMessage, ToolCallInfo, SSEEvent, InterruptData, TodoItem } from "@/lib/types";
+import { ChatMessage, ToolCallInfo, SSEEvent, InterruptData, TodoItem, TraceSpan, TraceStats } from "@/lib/types";
 import { streamChat, resumeChat } from "@/lib/api";
 import { useSSE } from "./useSSE";
 
@@ -24,6 +24,8 @@ export function useChat() {
   const [phase, setPhase] = useState<HarnessPhase>("idle");
   const [phaseLabel, setPhaseLabel] = useState("");
   const [pendingQueue, setPendingQueue] = useState<string[]>([]);
+  const [traceSpans, setTraceSpans] = useState<TraceSpan[]>([]);
+  const [traceStats, setTraceStats] = useState<TraceStats | null>(null);
 
   const assistantMsgRef = useRef<string>("");
   const toolCallsRef = useRef<ToolCallInfo[]>([]);
@@ -160,6 +162,23 @@ export function useChat() {
           break;
         }
 
+        case "trace":
+          // 增量 patch：start 插入，end 就地更新（耗时/token/error 只有 end 才有）
+          setTraceSpans((prev) => {
+            const idx = prev.findIndex((s) => s.span_id === event.span.span_id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = { ...next[idx], ...event.span };
+              return next;
+            }
+            return [...prev, event.span];
+          });
+          break;
+
+        case "trace_end":
+          setTraceStats(event.stats);
+          break;
+
         case "done":
           setStreaming(false);
           setPhase("done");
@@ -209,6 +228,9 @@ export function useChat() {
       setPhase("idle");
       setPhaseLabel("");
       resetAssistantState();
+      // 新一轮提问 → 清空上一轮链路；resume 走的路径不清（审批恢复属于同一轮）
+      setTraceSpans([]);
+      setTraceStats(null);
 
       const userMsg: ChatMessage = {
         id: uuidv4(),
@@ -310,6 +332,8 @@ export function useChat() {
     pendingQueue,
     phase,
     phaseLabel,
+    traceSpans,
+    traceStats,
     sendMessage,
     resumeWith,
     newChat,

@@ -32,20 +32,24 @@ export default function MessageList({ messages, streaming, showToolCalls }: Prop
   }, [messages, streaming]);
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
-    >
-      {messages.map((msg, idx) => (
-        <MessageBubble
-          key={msg.id}
-          message={msg}
-          isStreaming={streaming && idx === messages.length - 1 && msg.role === "assistant"}
-          showToolCalls={showToolCalls}
-        />
-      ))}
-      <div ref={bottomRef} />
+    <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-[1000px] px-8 py-5">
+        {messages.map((msg, idx) => (
+          <div
+            key={msg.id}
+            className={idx < messages.length - 1 ? "pb-4 mb-4 border-b border-line-200" : ""}
+          >
+            <MessageBubble
+              message={msg}
+              isStreaming={
+                streaming && idx === messages.length - 1 && msg.role === "assistant"
+              }
+              showToolCalls={showToolCalls}
+            />
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
     </div>
   );
 }

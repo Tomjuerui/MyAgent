@@ -1,4 +1,4 @@
-import { Conversation, ChatRequest, ResumeRequest } from "./types";
+import { Conversation, ChatRequest, ResumeRequest, TraceRun } from "./types";
 
 const BASE_URL = "http://localhost:8000/api";
 
@@ -58,6 +58,14 @@ export async function resumeChat(
     if (done) break;
     onChunk(decoder.decode(value, { stream: true }));
   }
+}
+
+// ===== 执行链路 API =====
+export async function fetchTrace(threadId: string, runId?: string): Promise<TraceRun> {
+  const qs = runId ? `?run_id=${encodeURIComponent(runId)}` : "";
+  const res = await fetch(`${BASE_URL}/chat/${threadId}/trace${qs}`);
+  if (!res.ok) throw new Error(`Trace failed: ${res.status}`);
+  return res.json();
 }
 
 export async function getChatState(threadId: string) {

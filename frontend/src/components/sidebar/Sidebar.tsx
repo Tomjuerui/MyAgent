@@ -26,7 +26,13 @@ export default function Sidebar({
   onDeleteThread,
 }: Props) {
   return (
-    <aside className="w-[280px] h-screen flex flex-col bg-[#F9FAFB] border-r border-gray-200 shrink-0">
+    <aside
+      className="h-screen flex flex-col bg-surface-050 shrink-0"
+      style={{
+        width: "var(--shell-sidebar)",
+        borderRight: "1px solid var(--line-300)",
+      }}
+    >
       <Logo />
       <NewChatButton onClick={onNewChat} />
       <SearchBox value={searchQuery} onChange={onSearchChange} />
@@ -36,8 +42,8 @@ export default function Sidebar({
         onSelect={onSelectThread}
         onDelete={onDeleteThread}
       />
-      <div className="px-4 py-3 border-t border-gray-200">
-        <span className="text-[11px] text-gray-400">DeepAgent v1.0.0</span>
+      <div className="px-4 py-2.5 border-t border-line-200">
+        <span className="ic-metric">DeepAgent v1.0.0</span>
       </div>
     </aside>
   );

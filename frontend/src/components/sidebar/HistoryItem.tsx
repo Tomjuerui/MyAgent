@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Conversation } from "@/lib/types";
 
 interface Props {
@@ -18,21 +18,31 @@ export default function HistoryItem({
 }: Props) {
   return (
     <div
-      className={`group flex items-center gap-2 px-3 py-2.5 mx-2 rounded-lg cursor-pointer transition-colors ${
+      className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-l-[3px] transition-colors ${
         active
-          ? "bg-blue-50 text-blue-700"
-          : "text-gray-700 hover:bg-gray-100"
+          ? "border-signal bg-signal-soft"
+          : "border-transparent hover:bg-surface-100"
       }`}
       onClick={() => onSelect(conversation.thread_id)}
     >
-      <MessageSquare size={14} className="shrink-0 opacity-60" />
-      <span className="flex-1 text-sm truncate">{conversation.title}</span>
+      <span
+        className="w-1.5 h-1.5 shrink-0"
+        style={{ background: active ? "var(--signal)" : "var(--line-400)" }}
+      />
+      <span
+        className={`flex-1 text-[13px] truncate ${
+          active ? "text-signal-lo" : "text-ink-600"
+        }`}
+      >
+        {conversation.title}
+      </span>
       <button
         onClick={(e) => {
           e.stopPropagation();
           onDelete(conversation.thread_id);
         }}
-        className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"
+        className="opacity-0 group-hover:opacity-100 p-0.5 text-ink-300 hover:text-stop transition-all"
+        title="删除"
       >
         <Trash2 size={13} />
       </button>

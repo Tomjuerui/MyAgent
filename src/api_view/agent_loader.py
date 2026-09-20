@@ -113,11 +113,12 @@ class AgentLoader:
         return conversations
 
     async def delete_conversation(self, thread_id: str):
-        """删除会话"""
+        """删除会话（连带清理展示消息 / harness trace / 执行链路 trace）"""
         db = get_db()
         await db.conversations.delete_one({"thread_id": thread_id})
         await db.display_messages.delete_one({"thread_id": thread_id})
         await db.harness_traces.delete_one({"thread_id": thread_id})
+        await db.agent_traces.delete_many({"thread_id": thread_id})
 
     async def save_harness_trace(self, thread_id: str, trace: list):
         """保存 Harness 阶段流转 trace 到 MongoDB（可观测/审计）
@@ -131,6 +132,52 @@ class AgentLoader:
             {"$set": {"trace": trace, "updated_at": datetime.now().isoformat()}},
             upsert=True,
         )
+
+    # ===== 执行链路 Trace（谁调用了谁 / 耗时 / 失败 / token）=====
+
+    async def save_trace(self, thread_id: str, run_id: str, payload: dict):
+        """保存一次 turn 的执行链路（一 run 一文档）"""
+        db = get_db()
+        await db.agent_traces.update_one(
+            {"run_id": run_id},
+            {"$set": {**payload, "updated_at": datetime.now().isoformat()}},
+            upsert=True,
+        )
+
+    async def get_trace(self, thread_id: str, run_id: Optional[str] = None):
+        """获取执行链路；run_id 为空时返回该会话最近一次 run"""
+        db = get_db()
+        if run_id:
+            doc = await db.agent_traces.find_one({"run_id": run_id, "thread_id": thread_id})
+        else:
+            docs = await (
+                db.agent_traces.find({"thread_id": thread_id})
+                .sort("started_at", -1)
+                .limit(1)
+                .to_list(length=1)
+            )
+            doc = docs[0] if docs else None
+        if not doc:
+            return None
+        doc["_id"] = str(doc["_id"])
+        return doc
+
+    async def list_trace_runs(self, thread_id: str, limit: int = 50) -> list:
+        """列出该会话的所有 run（轻量，不含 spans）"""
+        db = get_db()
+        cursor = (
+            db.agent_traces.find(
+                {"thread_id": thread_id},
+                {"run_id": 1, "started_at": 1, "ended_at": 1, "status": 1, "stats": 1},
+            )
+            .sort("started_at", -1)
+            .limit(limit)
+        )
+        runs = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            runs.append(doc)
+        return runs
 
 
 # 全局单例

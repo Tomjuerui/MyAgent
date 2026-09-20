@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChatMessage, InterruptData, TodoItem } from "@/lib/types";
+import { ChatMessage, InterruptData, TodoItem, TraceSpan } from "@/lib/types";
 import MessageList from "./MessageList";
 import WelcomeScreen from "./WelcomeScreen";
 import InputBar from "./InputBar";
@@ -10,6 +10,7 @@ import TodoListPanel from "./TodoListPanel";
 import HarnessPhaseBar from "./HarnessPhaseBar";
 import ToolCallToggle from "@/components/common/ToolCallToggle";
 import InterruptBanner from "@/components/interrupt/InterruptBanner";
+import TracePanel from "@/components/trace/TracePanel";
 
 interface Props {
   messages: ChatMessage[];
@@ -22,6 +23,7 @@ interface Props {
   pendingQueue: string[];
   phase: string;
   phaseLabel: string;
+  traceSpans: TraceSpan[];
   onSend: (msg: string) => void;
   onSupplement: (text: string) => void;
   onApprove: () => void;
@@ -39,21 +41,31 @@ export default function ChatArea({
   pendingQueue,
   phase,
   phaseLabel,
+  traceSpans,
   onSend,
   onSupplement,
   onApprove,
   onReject,
 }: Props) {
   const [showToolCalls, setShowToolCalls] = useState(true);
+  const [showTrace, setShowTrace] = useState(false);
   const hasMessages = messages.length > 0;
 
   return (
-    <main className="flex-1 flex flex-col h-screen bg-gray-50/50 min-w-0">
+    <main className="flex-1 flex flex-col h-screen bg-surface-050 min-w-0">
       {/* 顶部工具栏 */}
       {hasMessages && (
-        <div className="flex items-center justify-between px-6 py-2 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
-          <span className="text-xs text-gray-400">DeepAgent 智能助手</span>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-8 py-2 border-b border-line-200 bg-surface-000">
+          <span className="ic-label">采购控制台</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowTrace((v) => !v)}
+              className={
+                showTrace ? "ic-btn px-2 py-1 text-[11px]" : "ic-btn-ghost px-2 py-1 text-[11px]"
+              }
+            >
+              执行链路
+            </button>
             <ToolCallToggle show={showToolCalls} onToggle={setShowToolCalls} />
           </div>
         </div>
@@ -91,6 +103,15 @@ export default function ChatArea({
 
       {/* 输入区 */}
       <InputBar onSend={onSend} disabled={streaming} queued={pendingQueue.length} />
+
+      {/* 执行链路抽屉 */}
+      {showTrace && (
+        <TracePanel
+          spans={traceSpans}
+          streaming={streaming}
+          onClose={() => setShowTrace(false)}
+        />
+      )}
     </main>
   );
 }

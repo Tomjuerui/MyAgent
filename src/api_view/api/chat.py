@@ -10,7 +10,7 @@
 """
 import json
 import uuid
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from datetime import datetime
 
 from fastapi import APIRouter
@@ -20,6 +20,14 @@ from langgraph.types import Command
 from ..agent_loader import agent_loader
 from ...agent.schema import ChatRequest, ResumeRequest
 from ...agent.log_utils import web_logger
+from ...agent.trace import TraceCollector
+
+# Trace 是可观测旁路：handler 不可用时降级为"不采集"，绝不影响对话本身
+try:
+    from ...agent.trace.handler import LangChainTraceHandler
+except Exception as _trace_import_err:  # pragma: no cover
+    LangChainTraceHandler = None
+    web_logger.warning(f"Trace handler unavailable, tracing disabled: {_trace_import_err}")
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -58,6 +66,26 @@ async def stream_chat_response(
     """
     config = agent_loader.create_config(thread_id)
 
+    # 执行链路采集：每次 SSE 请求（含 resume）一个 run
+    collector = TraceCollector(thread_id=thread_id)
+    if LangChainTraceHandler is not None:
+        config["callbacks"] = [LangChainTraceHandler(collector)]
+
+    async def flush_trace(interrupted: bool):
+        """补齐未推送的增量 → 压实 → 发 trace_end → 落库"""
+        for op, span in collector.drain():
+            yield sse_event("trace", {"op": op, "span": span})
+        try:
+            payload = collector.finalize(interrupted=interrupted)
+        except Exception as e:
+            web_logger.warning(f"Trace finalize failed: {e}")
+            return
+        yield sse_event("trace_end", {"run_id": collector.run_id, "stats": payload["stats"]})
+        try:
+            await agent_loader.save_trace(thread_id, collector.run_id, payload)
+        except Exception as e:
+            web_logger.warning(f"Failed to save trace: {e}")
+
     # 加载已有消息（恢复场景）或初始化
     if resume_data:
         display_messages = await agent_loader.get_display_messages(thread_id)
@@ -91,6 +119,10 @@ async def stream_chat_response(
             stream_mode=["messages", "values", "custom"],
             subgraphs=True,
         ):
+            # ===== 执行链路增量（实时推送 span 开始/结束）=====
+            for op, span in collector.drain():
+                yield sse_event("trace", {"op": op, "span": span})
+
             # ===== 中断检测 + 结构化 Harness 状态读取（必须在 messages 处理之前）=====
             if chunk_type == "values":
                 if isinstance(chunk, dict):
@@ -175,6 +207,8 @@ async def stream_chat_response(
                             })
                         await agent_loader.save_display_messages(thread_id, display_messages)
                         await agent_loader.save_harness_trace(thread_id, harness_trace)
+                        async for evt in flush_trace(interrupted=True):
+                            yield evt
                         yield sse_event("done", {"thread_id": thread_id, "interrupted": True})
                         return
                 continue
@@ -320,10 +354,18 @@ async def stream_chat_response(
             title = message[:20] + "..." if len(message) > 20 else message
             await agent_loader.save_conversation(thread_id, user_id, title)
 
+        async for evt in flush_trace(interrupted=False):
+            yield evt
         yield sse_event("done", {"thread_id": thread_id, "interrupted": False})
 
     except Exception as e:
         web_logger.error(f"Stream error for thread {thread_id}: {e}", exc_info=True)
+        # 异常也要留下链路，方便事后定位"哪一步失败的"
+        try:
+            async for evt in flush_trace(interrupted=True):
+                yield evt
+        except Exception:
+            pass
         yield sse_event("error", {"message": f"服务内部错误: {str(e)[:200]}"})
         yield sse_event("done", {"thread_id": thread_id, "interrupted": False})
 
@@ -390,3 +432,23 @@ async def chat_history(thread_id: str):
     """获取对话消息历史"""
     messages = await agent_loader.get_display_messages(thread_id)
     return {"thread_id": thread_id, "messages": messages}
+
+
+@router.get("/{thread_id}/trace/runs")
+async def chat_trace_runs(thread_id: str):
+    """列出该会话的执行链路 run（轻量，不含 spans）"""
+    runs = await agent_loader.list_trace_runs(thread_id)
+    return {"thread_id": thread_id, "runs": runs}
+
+
+@router.get("/{thread_id}/trace")
+async def chat_trace(thread_id: str, run_id: Optional[str] = None):
+    """获取执行链路：谁调用了谁、每步耗时、失败点、token 归因
+
+    run_id 为空时返回最近一次 run。
+    """
+    await agent_loader.initialize()
+    trace = await agent_loader.get_trace(thread_id, run_id)
+    if not trace:
+        return {"thread_id": thread_id, "run_id": run_id, "spans": [], "stats": None}
+    return trace

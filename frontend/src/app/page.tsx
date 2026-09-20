@@ -92,6 +92,7 @@ export default function Home() {
         pendingQueue={chat.pendingQueue}
         phase={chat.phase}
         phaseLabel={chat.phaseLabel}
+        traceSpans={chat.traceSpans}
         onSend={chat.sendMessage}
         onSupplement={handleSupplement}
         onApprove={handleApprove}

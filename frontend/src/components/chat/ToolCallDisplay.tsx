@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Wrench, CheckCircle, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, SquareCheck } from "lucide-react";
 import { ToolCallInfo } from "@/lib/types";
 
 interface Props {
@@ -10,39 +10,47 @@ interface Props {
 
 export default function ToolCallDisplay({ toolCall }: Props) {
   const [expanded, setExpanded] = useState(false);
-
-  const statusIcon =
-    toolCall.status === "running" ? (
-      <Loader2 size={13} className="text-blue-500 animate-spin" />
-    ) : (
-      <CheckCircle size={13} className="text-green-500" />
-    );
+  const running = toolCall.status === "running";
 
   return (
-    <div className="my-1.5 border border-gray-200 rounded-lg overflow-hidden text-xs">
+    <div className="my-1 border border-line-300 bg-surface-000">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors"
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 bg-surface-100 hover:bg-surface-200 transition-colors text-left"
       >
-        {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        <Wrench size={13} className="text-gray-500" />
-        <span className="font-medium text-gray-700">{toolCall.name}</span>
-        <span className="ml-auto">{statusIcon}</span>
+        {expanded ? (
+          <ChevronDown size={12} className="text-ink-400 shrink-0" />
+        ) : (
+          <ChevronRight size={12} className="text-ink-400 shrink-0" />
+        )}
+        <span className="font-mono text-[12px] text-ink-800 truncate">
+          {toolCall.name}
+        </span>
+        {running ? (
+          <span className="ic-tag ic-tag-signal ml-auto">
+            <Loader2 size={11} className="animate-spin" />
+            运行中
+          </span>
+        ) : (
+          <span className="ic-tag ic-tag-go ml-auto">
+            <SquareCheck size={11} />
+            完成
+          </span>
+        )}
       </button>
+
       {expanded && (
-        <div className="px-3 py-2 space-y-2 border-t border-gray-100">
+        <div className="px-2.5 py-2 space-y-2 border-t border-line-200">
           {toolCall.args && (
             <div>
-              <span className="text-gray-400 font-medium">参数:</span>
-              <pre className="mt-1 p-2 bg-gray-900 text-gray-100 rounded text-[11px] overflow-x-auto whitespace-pre-wrap">
-                {formatJSON(toolCall.args)}
-              </pre>
+              <span className="ic-label">参数</span>
+              <pre className="ic-data mt-1">{formatJSON(toolCall.args)}</pre>
             </div>
           )}
           {toolCall.result && (
             <div>
-              <span className="text-gray-400 font-medium">结果:</span>
-              <pre className="mt-1 p-2 bg-gray-900 text-gray-100 rounded text-[11px] overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+              <span className="ic-label">结果</span>
+              <pre className="ic-data mt-1 max-h-40 overflow-y-auto">
                 {formatJSON(toolCall.result)}
               </pre>
             </div>

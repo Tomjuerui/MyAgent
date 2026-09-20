@@ -64,13 +64,7 @@ export default function StreamingText({ text, speed = 2 }: Props) {
 
   // 等待状态（还没有任何文字）
   if (!text) {
-    return (
-      <div className="flex items-center gap-1.5 py-1">
-        <span className="typing-dot w-2 h-2 bg-blue-500 rounded-full inline-block animate-bounce [animation-delay:0ms]" />
-        <span className="typing-dot w-2 h-2 bg-blue-500 rounded-full inline-block animate-bounce [animation-delay:150ms]" />
-        <span className="typing-dot w-2 h-2 bg-blue-500 rounded-full inline-block animate-bounce [animation-delay:300ms]" />
-      </div>
-    );
+    return <span className="ic-caret" />;
   }
 
   const displayedText = text.slice(0, displayedCount);
@@ -79,10 +73,7 @@ export default function StreamingText({ text, speed = 2 }: Props) {
   return (
     <span className="whitespace-pre-wrap">
       {displayedText}
-      {/* 打字光标 */}
-      {!isComplete && (
-        <span className="inline-block w-[2px] h-[1em] bg-blue-500 ml-0.5 align-middle animate-pulse" />
-      )}
+      {!isComplete && <span className="ic-caret ml-0.5" />}
     </span>
   );
 }

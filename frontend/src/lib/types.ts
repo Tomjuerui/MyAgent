@@ -61,6 +61,69 @@ export interface SSEPhaseEvent {
   label: string;
 }
 
+// ===== 执行链路 Trace =====
+export interface TraceSpan {
+  span_id: string;
+  parent_id: string | null;
+  kind: "run" | "graph" | "node" | "llm" | "tool";
+  name: string;
+  start_ms: number;
+  end_ms: number | null;
+  duration_ms: number | null;
+  status: "running" | "ok" | "error" | "interrupted";
+  node: string | null;
+  agent: string;
+  model: string | null;
+  tokens_in: number;
+  tokens_out: number;
+  tokens_total: number;
+  subtree_in: number;
+  subtree_out: number;
+  subtree_total: number;
+  error: string | null;
+  args_preview: string | null;
+  result_preview: string | null;
+  depth: number;
+  seq: number;
+}
+
+export interface TraceStats {
+  status: string;
+  duration_ms: number;
+  span_count: number;
+  llm_calls: number;
+  tool_calls: number;
+  error_count: number;
+  interrupted_count: number;
+  missing_usage: number;
+  tokens_in: number;
+  tokens_out: number;
+  tokens_total: number;
+  max_depth: number;
+}
+
+export interface SSETraceEvent {
+  type: "trace";
+  op: "start" | "end";
+  span: TraceSpan;
+}
+
+export interface SSETraceEndEvent {
+  type: "trace_end";
+  run_id: string;
+  stats: TraceStats;
+}
+
+export interface TraceRun {
+  thread_id: string;
+  run_id: string;
+  started_at: string;
+  ended_at: string;
+  status: string;
+  spans: TraceSpan[];
+  stats: TraceStats | null;
+}
+
 export type SSEEvent =
   | SSETokenEvent
   | SSEToolStartEvent
@@ -71,7 +134,9 @@ export type SSEEvent =
   | SSEDoneEvent
   | SSEThinkingEvent
   | SSETodoUpdateEvent
-  | SSEPhaseEvent;
+  | SSEPhaseEvent
+  | SSETraceEvent
+  | SSETraceEndEvent;
 
 // ===== 中断数据 =====
 export interface InterruptData {
@@ -137,9 +202,10 @@ export interface ResumeRequest {
   resume_data: Record<string, unknown>;
 }
 
-// ===== 功能卡片 =====
+// ===== 功能条目 =====
+// icon 为自绘线性图标的 key，不再使用 emoji
 export interface CapabilityCard {
-  icon: string;
+  icon: "analysis" | "order" | "inventory" | "parts";
   title: string;
   description: string;
   prompt: string;

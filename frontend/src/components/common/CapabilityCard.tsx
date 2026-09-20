@@ -1,25 +1,39 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import { CapabilityCard as CardType } from "@/lib/types";
+import CapabilityIcon from "./CapabilityIcon";
 
 interface Props {
   card: CardType;
+  index: number;
   onClick: (prompt: string) => void;
 }
 
-export default function CapabilityCard({ card, onClick }: Props) {
+export default function CapabilityCard({ card, index, onClick }: Props) {
   return (
     <button
       onClick={() => onClick(card.prompt)}
-      className="flex flex-col items-start gap-2 p-4 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all text-left group"
+      className="ic-row w-full text-left group"
     >
-      <span className="text-2xl">{card.icon}</span>
-      <span className="text-sm font-medium text-gray-800 group-hover:text-blue-600 transition-colors">
-        {card.title}
+      <span className="ic-metric w-5 shrink-0">
+        {String(index + 1).padStart(2, "0")}
       </span>
-      <span className="text-xs text-gray-500 leading-relaxed">
-        {card.description}
+      <span className="text-ink-400 group-hover:text-signal shrink-0 transition-colors">
+        <CapabilityIcon name={card.icon} />
       </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[13px] leading-snug text-ink-800 group-hover:text-signal transition-colors">
+          {card.title}
+        </span>
+        <span className="block text-[12px] leading-snug text-ink-400 mt-0.5">
+          {card.description}
+        </span>
+      </span>
+      <ChevronRight
+        size={14}
+        className="shrink-0 text-ink-300 group-hover:text-signal group-hover:translate-x-0.5 transition-all"
+      />
     </button>
   );
 }

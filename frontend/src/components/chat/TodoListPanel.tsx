@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { TodoItem } from "@/lib/types";
-import { CheckCircle2, Circle, Loader2, XCircle, ListTodo, X } from "lucide-react";
+import { Square, SquareCheck, Loader2, XCircle, ListTodo, X } from "lucide-react";
 
 interface Props {
   items: TodoItem[];
@@ -10,10 +10,10 @@ interface Props {
 }
 
 const STATUS_CONFIG = {
-  pending: { icon: Circle, color: "text-gray-300", label: "待处理" },
-  in_progress: { icon: Loader2, color: "text-blue-500", label: "执行中", spin: true },
-  complete: { icon: CheckCircle2, color: "text-green-500", label: "已完成" },
-  cancelled: { icon: XCircle, color: "text-red-400", label: "已取消" },
+  pending: { icon: Square, cls: "text-ink-300" },
+  in_progress: { icon: Loader2, cls: "text-signal", spin: true },
+  complete: { icon: SquareCheck, cls: "text-go" },
+  cancelled: { icon: XCircle, cls: "text-stop" },
 } as const;
 
 export default function TodoListPanel({ items, visible }: Props) {
@@ -28,61 +28,60 @@ export default function TodoListPanel({ items, visible }: Props) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-14 right-4 z-[9999] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors text-xs text-gray-600 animate-fade-in"
+        className="fixed top-14 right-4 z-[9999] ic-btn-ghost animate-fade-in"
       >
-        <ListTodo size={14} className="text-blue-600" />
-        <span>{completedCount}/{items.length}</span>
+        <ListTodo size={13} />
+        <span>
+          {completedCount}/{items.length}
+        </span>
       </button>
     );
   }
 
   return (
-    <div className="fixed top-14 right-4 w-72 z-[9999] rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden animate-fade-in">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50/80 border-b border-gray-100">
+    <div className="fixed top-14 right-4 w-72 z-[9999] ic-panel animate-fade-in">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-line-200 bg-surface-050">
         <div className="flex items-center gap-2">
-          <ListTodo size={14} className="text-blue-600" />
-          <span className="text-xs font-medium text-gray-700">任务规划</span>
+          <ListTodo size={13} className="text-signal" />
+          <span className="text-[12px] font-medium text-ink-700">任务规划</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-gray-400">
-            {completedCount}/{items.length} 完成
+          <span className="ic-metric">
+            {completedCount}/{items.length}
           </span>
           <button
             onClick={() => setOpen(false)}
-            className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+            className="p-0.5 text-ink-300 hover:text-ink-600 transition-colors"
             title="收起"
           >
-            <X size={14} className="text-gray-400" />
+            <X size={13} />
           </button>
         </div>
       </div>
 
-      <div className="h-1 bg-gray-100">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="ic-progress">
+        <span style={{ width: `${progress}%` }} />
       </div>
 
-      <div className="px-4 py-2 space-y-1.5 max-h-60 overflow-y-auto">
+      <div className="px-3 py-2 max-h-60 overflow-y-auto">
         {items.map((item) => {
           const config = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
           const Icon = config.icon;
           return (
-            <div key={item.id} className="flex items-center gap-2.5 py-0.5">
+            <div key={item.id} className="flex items-start gap-2.5 py-1">
               <Icon
-                size={14}
-                className={`${config.color} shrink-0 ${
+                size={13}
+                className={`${config.cls} shrink-0 mt-0.5 ${
                   "spin" in config && config.spin ? "animate-spin" : ""
                 }`}
               />
               <span
-                className={`text-xs leading-relaxed ${
+                className={`text-[12px] leading-relaxed ${
                   item.status === "complete"
-                    ? "text-gray-400 line-through"
+                    ? "text-ink-300 line-through"
                     : item.status === "in_progress"
-                    ? "text-gray-800 font-medium"
-                    : "text-gray-500"
+                      ? "text-ink-800"
+                      : "text-ink-500"
                 }`}
               >
                 {item.content}

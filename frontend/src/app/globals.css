@@ -1,149 +1,529 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Industrial Console — Design Tokens
+   中性色统一偏冷蓝灰（避开纯黑/纯白），信号色取自工业标识色，
+   不用 Tailwind 默认蓝 + 活泼强调色那套。
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --sidebar-bg: #f9fafb;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --coral: #ff6b6b;
-  --border: #e5e7eb;
-  --muted: #6b7280;
+  /* 中性阶梯 */
+  --ink-900: #14181c;
+  --ink-800: #1d2429;
+  --ink-700: #2e363d;
+  --ink-600: #454f57;
+  --ink-500: #5a656e;
+  --ink-400: #7c8792;
+  --ink-300: #9ba5ae;
+
+  --surface-000: #fdfefe;
+  --surface-050: #f7f9fa;
+  --surface-100: #eff2f4;
+  --surface-200: #e4e8eb;
+  --surface-300: #d6dce0;
+
+  --line-200: #e4e8eb;
+  --line-300: #cfd6db;
+  --line-400: #aab3ba;
+  --line-500: #8a949c;
+
+  /* 信号色 */
+  --signal: #10455e;
+  --signal-hi: #175f80;
+  --signal-lo: #0b3448;
+  --signal-soft: #e6eef2;
+
+  --go: #1f6b4a;
+  --go-soft: #e5f0ea;
+  --warn: #8a4b00;
+  --warn-soft: #fbf1e2;
+  --stop: #94241f;
+  --stop-soft: #f9ebea;
+
+  /* 字体 — 避开 Inter/Roboto/Arial/Open Sans */
+  --font-display: "Bahnschrift", "DIN Alternate", "Oswald", "Saira Condensed", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "Segoe UI Variable Text", system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "Cascadia Mono", "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, ui-monospace, monospace;
+
+  --shell-sidebar: clamp(216px, 17vw, 272px);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-sidebar: var(--sidebar-bg);
-  --color-primary: var(--primary);
-  --color-primary-hover: var(--primary-hover);
-  --color-coral: var(--coral);
-  --color-border: var(--border);
-  --color-muted: var(--muted);
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
-  --font-mono: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+  --color-ink-600: var(--ink-600);
+  --color-ink-500: var(--ink-500);
+  --color-ink-400: var(--ink-400);
+  --color-ink-300: var(--ink-300);
+
+  --color-surface-000: var(--surface-000);
+  --color-surface-050: var(--surface-050);
+  --color-surface-100: var(--surface-100);
+  --color-surface-200: var(--surface-200);
+  --color-surface-300: var(--surface-300);
+
+  --color-line-200: var(--line-200);
+  --color-line-300: var(--line-300);
+  --color-line-400: var(--line-400);
+  --color-line-500: var(--line-500);
+
+  --color-signal: var(--signal);
+  --color-signal-hi: var(--signal-hi);
+  --color-signal-lo: var(--signal-lo);
+  --color-signal-soft: var(--signal-soft);
+
+  --color-go: var(--go);
+  --color-go-soft: var(--go-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-stop: var(--stop);
+  --color-stop-soft: var(--stop-soft);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-none: 0px;
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
 }
 
+/* ============================================================
+   Base
+   ============================================================ */
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
   margin: 0;
   padding: 0;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+body {
+  background: var(--surface-050);
+  color: var(--ink-700);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Markdown content */
+/* 全局清掉意外圆角：工业控制台只保留极小倒角 */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  border-radius: 0;
+}
+
+/* 滚动条 — 方形、无圆角 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface-100);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-400);
+  border: 2px solid var(--surface-100);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-400);
+}
+
+/* ============================================================
+   工业风原子类
+   ============================================================ */
+
+/* 面板：硬边框、无阴影、无圆角 */
+.ic-panel {
+  background: var(--surface-000);
+  border: 1px solid var(--line-300);
+}
+
+/* 分区标题 — 等宽小字 */
+.ic-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+}
+
+/* 数据读数 — 等宽，用于编号、计数、状态 */
+.ic-metric {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 分隔线 */
+.ic-rule {
+  height: 1px;
+  background: var(--line-200);
+}
+
+/* 列表行：hover 用整行底色切换，不用阴影抬升 */
+.ic-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line-200);
+  background: transparent;
+  transition: background-color 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ic-row:hover {
+  background: var(--surface-100);
+}
+
+/* 按钮 — 方形、硬边、实心信号色 */
+.ic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--signal);
+  background: var(--signal);
+  color: #f2f7f9;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ic-btn:hover:not(:disabled) {
+  background: var(--signal-hi);
+  border-color: var(--signal-hi);
+}
+.ic-btn:disabled {
+  background: var(--surface-200);
+  border-color: var(--line-300);
+  color: var(--ink-300);
+  cursor: not-allowed;
+}
+
+/* 次级按钮 */
+.ic-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-300);
+  background: var(--surface-000);
+  color: var(--ink-600);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ic-btn-ghost:hover {
+  border-color: var(--line-500);
+  color: var(--ink-800);
+}
+
+/* 危险按钮 */
+.ic-btn-stop {
+  background: var(--stop);
+  border-color: var(--stop);
+  color: #fdf3f2;
+}
+.ic-btn-stop:hover:not(:disabled) {
+  background: #7a1d19;
+  border-color: #7a1d19;
+}
+
+/* 输入框 */
+.ic-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line-300);
+  background: var(--surface-000);
+  color: var(--ink-800);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ic-input::placeholder {
+  color: var(--ink-300);
+}
+.ic-input:focus {
+  border-color: var(--signal);
+  box-shadow: inset 0 0 0 1px var(--signal);
+}
+
+/* 状态标签 */
+.ic-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-300);
+  background: var(--surface-100);
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.ic-tag-signal {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+  color: var(--signal-lo);
+}
+.ic-tag-go {
+  border-color: var(--go);
+  background: var(--go-soft);
+  color: var(--go);
+}
+.ic-tag-warn {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.ic-tag-stop {
+  border-color: var(--stop);
+  background: var(--stop-soft);
+  color: var(--stop);
+}
+
+/* 左侧信号竖条（替代整块彩色卡片） */
+.ic-accent {
+  border-left: 3px solid var(--line-400);
+}
+.ic-accent-signal {
+  border-left-color: var(--signal);
+}
+.ic-accent-warn {
+  border-left-color: var(--warn);
+}
+.ic-accent-stop {
+  border-left-color: var(--stop);
+}
+.ic-accent-go {
+  border-left-color: var(--go);
+}
+
+/* 方形开关 */
+.ic-switch {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  border: 1px solid var(--line-400);
+  background: var(--surface-200);
+  cursor: pointer;
+  transition: background-color 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ic-switch[data-on="true"] {
+  background: var(--signal);
+  border-color: var(--signal);
+}
+.ic-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface-000);
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ic-switch[data-on="true"]::after {
+  transform: translateX(14px);
+  background: #eaf2f6;
+}
+
+/* 数据块（JSON / 参数） */
+.ic-data {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--surface-050);
+  border: 1px solid var(--line-200);
+  border-left: 2px solid var(--line-400);
+  color: var(--ink-700);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.65;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ============================================================
+   Markdown — 去掉深蓝代码块，改用同色系数据块
+   ============================================================ */
 .markdown-body p {
   margin: 0.5em 0;
   line-height: 1.7;
 }
 .markdown-body ul,
 .markdown-body ol {
-  padding-left: 1.5em;
+  padding-left: 1.4em;
   margin: 0.5em 0;
 }
 .markdown-body li {
-  margin: 0.25em 0;
+  margin: 0.2em 0;
 }
 .markdown-body code {
-  background: #f3f4f6;
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
-  font-size: 0.875em;
-  font-family: var(--font-mono), monospace;
+  background: var(--surface-100);
+  border: 1px solid var(--line-200);
+  padding: 0.05em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  color: var(--ink-800);
 }
 .markdown-body pre {
-  background: #1f2937;
-  color: #e5e7eb;
-  padding: 1em;
-  border-radius: 8px;
+  background: var(--surface-050);
+  border: 1px solid var(--line-200);
+  border-left: 2px solid var(--line-400);
+  color: var(--ink-800);
+  padding: 0.7em 0.85em;
   overflow-x: auto;
-  margin: 0.75em 0;
+  margin: 0.6em 0;
 }
 .markdown-body pre code {
   background: none;
+  border: none;
   padding: 0;
   color: inherit;
+  font-size: 11px;
 }
 .markdown-body table {
   border-collapse: collapse;
   width: 100%;
-  margin: 0.75em 0;
+  margin: 0.6em 0;
+  font-size: 12px;
 }
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid var(--border);
-  padding: 0.5em 0.75em;
+  border: 1px solid var(--line-200);
+  padding: 5px 9px;
   text-align: left;
 }
 .markdown-body th {
-  background: #f9fafb;
-  font-weight: 600;
+  background: var(--surface-100);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-600);
 }
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3 {
-  margin: 1em 0 0.5em;
-  font-weight: 600;
+  margin: 0.9em 0 0.45em;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.markdown-body h1 {
+  font-size: 17px;
+}
+.markdown-body h2 {
+  font-size: 15px;
+}
+.markdown-body h3 {
+  font-size: 14px;
 }
 .markdown-body blockquote {
-  border-left: 3px solid var(--primary);
-  padding-left: 1em;
-  color: var(--muted);
-  margin: 0.75em 0;
+  border-left: 3px solid var(--line-400);
+  padding-left: 0.9em;
+  color: var(--ink-500);
+  margin: 0.6em 0;
 }
 
-/* Animations */
-@keyframes fadeIn {
+/* ============================================================
+   Motion — 只做极短的状态过渡，禁用弹跳/回弹
+   ============================================================ */
+@keyframes ic-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
+  animation: ic-in 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-@keyframes pulse-dot {
-  0%,
-  80%,
+/* 控制台扫描线：替代 bouncing dots */
+@keyframes ic-scan {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  50% {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+  51% {
+    transform: scaleX(1);
+    transform-origin: right;
+  }
   100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
+    transform: scaleX(0);
+    transform-origin: right;
   }
 }
-.typing-dot {
-  animation: pulse-dot 1.4s infinite ease-in-out both;
+.ic-scanbar {
+  height: 2px;
+  background: var(--signal);
+  animation: ic-scan 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
-.typing-dot:nth-child(1) {
-  animation-delay: -0.32s;
+
+/* 方块光标：替代跳动的圆点 */
+@keyframes ic-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
-.typing-dot:nth-child(2) {
-  animation-delay: -0.16s;
+.ic-caret {
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  background: var(--signal);
+  vertical-align: text-bottom;
+  animation: ic-blink 1s steps(1) infinite;
+}
+
+/* 进度条：实心推进，不用渐变 */
+.ic-progress {
+  height: 2px;
+  background: var(--surface-200);
+}
+.ic-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--signal);
+  transition: width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -19,8 +19,8 @@ const PHASES = [
 const PHASE_ORDER = ["thinking", "planning", "executing", "reviewing", "done"];
 
 /**
- * Harness 工作流阶段指示器
- * 展示: 思考 → 规划 → 执行 → 审查 → 完成
+ * 阶段状态条
+ * 思考 → 规划 → 执行 → 审查 → 完成
  */
 export default function HarnessPhaseBar({ phase, phaseLabel, visible }: Props) {
   if (!visible || phase === "idle") return null;
@@ -28,56 +28,41 @@ export default function HarnessPhaseBar({ phase, phaseLabel, visible }: Props) {
   const currentIdx = PHASE_ORDER.indexOf(phase);
 
   return (
-    <div className="px-6 py-2 bg-white/90 backdrop-blur-sm border-b border-gray-100 animate-fade-in">
-      <div className="flex items-center gap-1 max-w-lg mx-auto">
-        {PHASES.map((p, idx) => {
-          const Icon = p.icon;
-          const isPast = idx < currentIdx;
-          const isCurrent = idx === currentIdx;
+    <div className="border-b border-line-200 bg-surface-000">
+      <div className="mx-auto w-full max-w-[1000px] px-8 py-2">
+        <div className="flex items-stretch border border-line-300">
+          {PHASES.map((p, idx) => {
+            const Icon = p.icon;
+            const isPast = idx < currentIdx;
+            const isCurrent = idx === currentIdx;
 
-          return (
-            <div key={p.key} className="flex items-center">
-              {/* 阶段节点 */}
-              <div className="flex flex-col items-center gap-0.5">
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${
-                    isCurrent
-                      ? "bg-blue-500 text-white shadow-md shadow-blue-200 scale-110"
-                      : isPast
-                        ? "bg-green-100 text-green-600"
-                        : "bg-gray-100 text-gray-400"
-                  }`}
-                >
-                  <Icon size={14} className={isCurrent ? "animate-pulse" : ""} />
-                </div>
-                <span
-                  className={`text-[10px] ${
-                    isCurrent ? "text-blue-600 font-medium" : isPast ? "text-green-600" : "text-gray-400"
-                  }`}
-                >
-                  {p.label}
-                </span>
+            const tone = isCurrent
+              ? "bg-signal text-[#eaf2f6]"
+              : isPast
+                ? "bg-surface-000 text-go"
+                : "bg-surface-100 text-ink-300";
+
+            return (
+              <div
+                key={p.key}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 transition-colors duration-200 ${tone} ${
+                  idx < PHASES.length - 1 ? "border-r border-line-300" : ""
+                }`}
+              >
+                <Icon size={12} />
+                <span className="font-mono text-[11px] tracking-wider">{p.label}</span>
               </div>
-
-              {/* 连接线 */}
-              {idx < PHASES.length - 1 && (
-                <div
-                  className={`w-8 h-0.5 mx-0.5 mb-3 rounded transition-colors duration-300 ${
-                    idx < currentIdx ? "bg-green-400" : "bg-gray-200"
-                  }`}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 当前阶段标签 */}
-      {phaseLabel && (
-        <div className="text-center mt-1">
-          <span className="text-xs text-gray-500 animate-pulse">{phaseLabel}</span>
+            );
+          })}
         </div>
-      )}
+
+        {phaseLabel && (
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="ic-label">当前阶段</span>
+            <span className="text-[12px] text-ink-600">{phaseLabel}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
