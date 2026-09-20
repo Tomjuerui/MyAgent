@@ -1,0 +1,29 @@
+# 版本控制与本地环境
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Python 运行产物
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 前端（独立构建上下文，后端镜像不需要）
+frontend/
+
+# 本地数据与生成文件（容器内用 volume 持久化）
+src/download/
+src/mock_erp/erp.db
+
+# 文档与工具目录
+PYTHON_BACKEND_GUIDE.md
+README.md
+docs/
+.qoder/
+.vscode/
+.idea/

@@ -16,6 +16,7 @@
 """
 import os
 import base64
+import shlex
 from pathlib import Path
 from langchain_core.tools import tool
 
@@ -73,19 +74,23 @@ def download_sandbox_file(remote_path: str, filename: str = "") -> str:
     container, docker_client = _get_docker_container()
     if container is not None:
         try:
-            # 检查文件是否存在
-            check = container.exec_run(f"test -f '{remote_path}' && echo EXISTS || echo NOT_FOUND")
+            # 必须显式经 shell 执行：字符串命令会被 Docker SDK 按 argv 拆分，
+            # 导致 && / || 失去 shell 语义（custom_opensandbox.execute 同理用 bash -c）
+            quoted = shlex.quote(remote_path)
+            check = container.exec_run(
+                ["sh", "-c", f"test -f {quoted} && echo EXISTS || echo NOT_FOUND"]
+            )
             if check.exit_code != 0 or b"NOT_FOUND" in (check.output or b""):
                 docker_client.close()
                 return f"文件不存在于沙箱中: {remote_path}"
 
             # 获取文件大小
-            size_check = container.exec_run(f"stat -c %s '{remote_path}'")
+            size_check = container.exec_run(["stat", "-c", "%s", remote_path])
             file_size = int(size_check.output.decode().strip()) if size_check.exit_code == 0 else 0
 
             # 使用 base64 读取文件（支持二进制）
             read_result = container.exec_run(
-                f"base64 '{remote_path}'",
+                ["base64", remote_path],
                 demux=True,
             )
 
@@ -170,7 +175,7 @@ def list_sandbox_files(path: str = "/workspace") -> str:
         return "沙箱不可用"
 
     try:
-        result = container.exec_run(f"ls -lah '{path}'")
+        result = container.exec_run(["ls", "-lah", path])
         output = result.output.decode("utf-8", errors="replace") if result.output else ""
         if docker_client:
             docker_client.close()

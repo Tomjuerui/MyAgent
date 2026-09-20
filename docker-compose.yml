@@ -1,0 +1,144 @@
+# ============================================================
+# ERP 智能采购助手 — 全栈 Docker Compose 编排
+#
+# 启动顺序（compose 依据 depends_on 自动编排）:
+#   mongo + sandbox → mock-erp(:8081) → mcp-server(:9000) → backend(:8000) → frontend(:3000)
+#
+# 使用:
+#   docker compose build          # 首次构建镜像
+#   docker compose up -d          # 启动全部服务
+#   docker compose ps / logs -f   # 查看状态与日志
+#   docker compose down           # 停止（数据卷保留）
+#   docker compose down -v        # 停止并清空 MongoDB 数据
+#
+# 前置要求: Docker Desktop 已启动；项目根目录存在 .env（含 DASHSCOPE_API_KEY）
+# ============================================================
+name: myagent
+
+services:
+  # ---------- MongoDB：会话/消息/Store 持久化 ----------
+  mongo:
+    image: mongo:6.0
+    container_name: myagent-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1}).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- 常驻 Docker 沙箱（Agent 代码执行环境） ----------
+  # backend 通过挂载的 docker.sock 以容器名 "erp-sandbox" 找到它。
+  # 安全防护对齐 sandbox_setup.py：资源上限 + cap 收紧 + tmpfs + 禁止提权
+  # （自定义 seccomp.json 需宿主存在该文件，容器内无法传递，此处沿用 Docker 默认 seccomp）
+  sandbox:
+    image: python:3.11-slim
+    container_name: erp-sandbox
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sleep infinity
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+      - /workspace:rw,noexec,nosuid,size=256m
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- Mock ERP (:8081) ----------
+  # 镜像由 backend 服务统一构建（docker compose build），三个 Python 服务共用
+  mock-erp:
+    image: myagent-backend:local
+    container_name: myagent-mock-erp
+    restart: unless-stopped
+    command: python -m src.mock_erp.main
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8081/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  # ---------- MCP Server (:9000, SSE) ----------
+  mcp-server:
+    image: myagent-backend:local
+    container_name: myagent-mcp-server
+    restart: unless-stopped
+    command: python -m src.mcp_server.server_main
+    environment:
+      ERP_BASE_URL: http://mock-erp:8081
+    ports:
+      - "9000:9000"
+    depends_on:
+      mock-erp:
+        condition: service_healthy
+    healthcheck:
+      # /sse 为长连接，收到响应头即视为存活
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:9000/sse', timeout=3)"]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 10s
+
+  # ---------- 后端 API (:8000, FastAPI + DeepAgent) ----------
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    image: myagent-backend:local
+    container_name: myagent-backend
+    restart: unless-stopped
+    command: python -m src.api_view.web_main
+    environment:
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:?请先在项目根目录 .env 中配置 DASHSCOPE_API_KEY}
+      LLM_MODEL: ${LLM_MODEL:-qwen-plus}
+      MONGODB_URI: mongodb://mongo:27017
+      MCP_SERVER_URL: http://mcp-server:9000
+      ERP_BASE_URL: http://mock-erp:8081
+      SANDBOX_IMAGE: python:3.11-slim
+    ports:
+      - "8000:8000"
+    volumes:
+      # 兄弟容器模式：backend 内的 Docker SDK 通过宿主 daemon 管理沙箱
+      - /var/run/docker.sock:/var/run/docker.sock
+      - download-data:/app/src/download
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mcp-server:
+        condition: service_healthy
+
+  # ---------- 前端 Next.js (:3000) ----------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    image: myagent-frontend:local
+    container_name: myagent-frontend
+    restart: unless-stopped
+    environment:
+      # 服务端 /api 反向代理目标（浏览器侧直连 localhost:8000 不变）
+      BACKEND_ORIGIN: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  mongo-data:
+  download-data:

@@ -189,13 +189,37 @@ ERP-AGENT/
 
 ## 快速启动
 
-### 环境要求
+### 方式一：Docker 一键启动（推荐）
 
-- Python 3.11+
+前置要求：Docker Desktop 已启动；项目根目录存在 `.env` 并填入 `DASHSCOPE_API_KEY`（可从 `.env.example` 复制）。
+
+```bash
+docker compose build      # 首次构建镜像（后端 Python 镜像 + 前端 Next standalone 镜像）
+docker compose up -d      # 启动全部 6 个服务
+docker compose ps         # 查看状态
+docker compose logs -f backend   # 跟踪某个服务日志
+docker compose down       # 停止（MongoDB 数据卷保留）
+docker compose down -v    # 停止并清空数据
+```
+
+compose 已按依赖顺序编排：`mongo + sandbox → mock-erp(:8081) → mcp-server(:9000) → backend(:8000) → frontend(:3000)`，浏览器访问 http://localhost:3000 即可。
+
+说明：
+- backend 容器挂载 `/var/run/docker.sock`（兄弟容器模式）管理沙箱容器；`erp-sandbox` 常驻容器由 compose 预建，资源上限/cap 收紧/no-new-privileges 与 `sandbox_setup.py` 对齐；自定义 seccomp.json 属宿主文件，容器编排下沿用 Docker 默认 seccomp 策略
+- MongoDB 数据在 `mongo-data` 卷中持久化；Mock ERP 的 SQLite 在容器内，`docker compose up -d --force-recreate mock-erp` 会重置并重新灌入种子数据
+- 端口与本地开发模式完全一致，前端页面/API 地址无需改动
+
+### 方式二：本地进程手动启动
+
+#### 环境要求
+
+- Python 3.11+（**deepagents 必须 <0.7**，requirements.txt 已锁上界）
 - Node.js 18+
 - MongoDB 6.0+
 - Docker Desktop（已启动）
 - 通义千问 API Key（DashScope）
+
+> Windows + Git Bash 提示：若 `npm run dev` 报 `'node' 不是内部或外部命令`（nvm-windows PATH 未传递给子进程），改用 `node node_modules/next/dist/bin/next dev`。
 
 ### 1. 克隆项目 & 安装依赖
 
