@@ -33,6 +33,11 @@ next-env.d.ts
 src/download/
 src/mock_erp/erp.db
 
+# ============ 本地文档（不随仓库提交） ============
+.workbuddy/
+docs/
+PYTHON_BACKEND_GUIDE.md
+
 # ============ 日志 ============
 *.log
 
