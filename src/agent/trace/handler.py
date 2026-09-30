@@ -42,11 +42,12 @@ def _name_of(serialized: Optional[Dict[str, Any]], default: str = "") -> str:
     return default
 
 
-def _agent_of(metadata: Optional[Dict[str, Any]]) -> str:
+def _agent_of(metadata: Optional[Dict[str, Any]], node: Optional[str] = None) -> str:
     """从 langgraph_checkpoint_ns 推断归属 agent。
 
-    形如 "procurement-analyst:6b7b0e2f-..."，取冒号前一段；
-    为空或纯 UUID（子图未命名）时归 main。
+    子图形如 "procurement-analyst:6b7b0e2f-..."，取冒号前一段。
+    主图的 ns 首段就是节点/中间件任务名（"model"、"TodoListMiddleware.after_model"），
+    必须排除，否则会把节点名当成 agent 显示成 "model · model" 这种重复。
     """
     md = metadata or {}
     ns = md.get("langgraph_checkpoint_ns") or ""
@@ -55,8 +56,14 @@ def _agent_of(metadata: Optional[Dict[str, Any]]) -> str:
     head = str(ns).split(":")[0]
     if not head:
         return "main"
+    # 中间件任务名带点号 → 主图内部，不是子 Agent
+    if "." in head:
+        return "main"
+    # 与当前节点同名 → 主图节点自己的命名空间
+    if node and head == node:
+        return "main"
     # 形如 6b7b0e2f-1c2d-... 的无名命名空间
-    if len(head) >= 32 and "-" in head and "." not in head:
+    if len(head) >= 32 and "-" in head:
         return "main"
     return head
 
@@ -174,7 +181,7 @@ class LangChainTraceHandler(AsyncCallbackHandler):
         try:
             metadata = kwargs.get("metadata") or {}
             node = _node_of(metadata)
-            agent = _agent_of(metadata)
+            agent = _agent_of(metadata, node)
             self.collector.start_span(
                 span_id=_as_id(run_id),
                 parent_id=_as_id(parent_run_id),
@@ -203,6 +210,7 @@ class LangChainTraceHandler(AsyncCallbackHandler):
     async def on_llm_start(self, serialized, prompts, *, run_id, parent_run_id=None, **kwargs):
         try:
             metadata = kwargs.get("metadata") or {}
+            node = _node_of(metadata)
             model = _model_of(serialized, kwargs)
             name = f"llm · {model}" if model else "llm"
             preview = _preview(prompts, 500) if prompts else ""
@@ -211,8 +219,8 @@ class LangChainTraceHandler(AsyncCallbackHandler):
                 parent_id=_as_id(parent_run_id),
                 kind=RAW_LLM,
                 name=name,
-                node=_node_of(metadata),
-                agent=_agent_of(metadata),
+                node=node,
+                agent=_agent_of(metadata, node),
                 model=model or None,
                 args_preview=preview,
             )
@@ -251,6 +259,7 @@ class LangChainTraceHandler(AsyncCallbackHandler):
     async def on_tool_start(self, serialized, input_str, *, run_id, parent_run_id=None, **kwargs):
         try:
             metadata = kwargs.get("metadata") or {}
+            node = _node_of(metadata)
             name = _name_of(serialized, "tool")
             inputs = kwargs.get("inputs")
             preview = input_str if isinstance(input_str, str) and input_str else _preview(inputs)
@@ -259,8 +268,8 @@ class LangChainTraceHandler(AsyncCallbackHandler):
                 parent_id=_as_id(parent_run_id),
                 kind=RAW_TOOL,
                 name=name,
-                node=_node_of(metadata),
-                agent=_agent_of(metadata),
+                node=node,
+                agent=_agent_of(metadata, node),
                 args_preview=preview,
             )
         except Exception:
