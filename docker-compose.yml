@@ -11,7 +11,12 @@
 #   docker compose down           # 停止（数据卷保留）
 #   docker compose down -v        # 停止并清空 MongoDB 数据
 #
-# 前置要求: Docker Desktop 已启动；项目根目录存在 .env（含 DASHSCOPE_API_KEY）
+# 前置要求:
+#   1. Docker Desktop 已启动
+#   2. 项目根目录存在 .env，含 LLM_MODEL / LLM_API_KEY（指向本地反代网关）
+#   3. workbuddy2api-hub 网关已启动在宿主 8788 端口（backend 首次装配 Agent 时才会连接）
+#      网关未起时 backend 会在 get_llm/MCP 初始化阶段报错，起好网关后
+#      `docker compose restart backend` 即可
 # ============================================================
 name: myagent
 
@@ -104,8 +109,13 @@ services:
     restart: unless-stopped
     command: python -m src.api_view.web_main
     environment:
-      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:?请先在项目根目录 .env 中配置 DASHSCOPE_API_KEY}
-      LLM_MODEL: ${LLM_MODEL:-qwen-plus}
+      # LLM 走宿主机上的 workbuddy2api-hub 反代网关
+      # 容器内必须用 host.docker.internal，写 127.0.0.1 会指向容器自身
+      LLM_MODEL: ${LLM_MODEL:-hy4-preview-f}
+      LLM_BASE_URL: http://host.docker.internal:8788/v1
+      LLM_API_KEY: ${LLM_API_KEY:?请先在项目根目录 .env 中配置 LLM_API_KEY}
+      # 仅 src/agent/tools/web_search.py 联网搜索需要；不用该工具可留空
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       MONGODB_URI: mongodb://mongo:27017
       MCP_SERVER_URL: http://mcp-server:9000
       ERP_BASE_URL: http://mock-erp:8081

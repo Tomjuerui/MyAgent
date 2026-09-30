@@ -7,21 +7,31 @@ from langchain_openai import ChatOpenAI
 from .env_utils import get_env, get_env_int
 
 # ============ LLM 配置 ============
-LLM_MODEL = get_env("LLM_MODEL", "qwen-plus")
-LLM_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-LLM_API_KEY = get_env("DASHSCOPE_API_KEY", "")
+# 默认走本地反代网关 workbuddy2api-hub（http://127.0.0.1:8788/v1）
+# 换模型：改 .env 的 LLM_MODEL 即可（hy4-preview-f / hy3 / deepseek-v4.1-flash / glm-5.3 ...）
+# 原阿里云 DashScope 配置如下，需要切回时取消注释并注释掉本地反代默认值：
+# LLM_MODEL = get_env("LLM_MODEL", "qwen-plus")
+# LLM_BASE_URL = get_env("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+# LLM_API_KEY = get_env("LLM_API_KEY", "") or get_env("DASHSCOPE_API_KEY", "")
+LLM_MODEL = get_env("LLM_MODEL", "hy4-preview-f")
+LLM_BASE_URL = get_env("LLM_BASE_URL", "http://127.0.0.1:8788/v1")
+LLM_API_KEY = get_env("LLM_API_KEY", "")
 LLM_TEMPERATURE = 0.1
-LLM_MAX_TOKENS = 4096
+# hy4/hy3 都是思考型模型，思维链与正文共用输出额度（上游上限 64k），
+# 4096 会被思维链吃满导致 content 为空
+LLM_MAX_TOKENS = get_env_int("LLM_MAX_TOKENS", 16384)
 
 
 def get_llm() -> ChatOpenAI:
-    """获取 LLM 实例（通义千问 OpenAI 兼容接口）"""
+    """获取 LLM 实例（OpenAI 兼容接口，当前指向本地反代网关）"""
     return ChatOpenAI(
         model=LLM_MODEL,
         base_url=LLM_BASE_URL,
-        api_key=LLM_API_KEY,
+        api_key=LLM_API_KEY or "EMPTY",
         temperature=LLM_TEMPERATURE,
         max_tokens=LLM_MAX_TOKENS,
+        # OpenAI 兼容接口默认不在流式响应中返回 usage，不加这项 trace 采集拿不到 token
+        stream_usage=True,
     )
 
 
