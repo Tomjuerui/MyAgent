@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hacker News</title>
+</head>
+<body>
+  <header role="banner">
+    <span>Hacker News</span>
+    <a href="/newest">new</a>
+    <a href="/front">past</a>
+    <a href="/ask">ask</a>
+    <a href="/show">show</a>
+    <a href="/jobs">jobs</a>
+  </header>
+
+  <main role="main">
+    <h1>Hacker News · Top AI stories</h1>
+    <p>
+      <strong>Mock Page for Demo</strong> · 本页为演示用伪造内容，不是 Hacker News 真实数据
+    </p>
+    <p>Collected 2026-09-30. Sorted by points, then by discussion volume.</p>
+
+    <h2>Story metrics</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Points</th>
+          <th>Comments</th>
+          <th>Posted</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Show HN: A durable execution engine for LLM agents</td>
+          <td>487</td>
+          <td>132</td>
+          <td>2026-09-30</td>
+        </tr>
+        <tr>
+          <td>Why agent frameworks keep reinventing workflow engines</td>
+          <td>351</td>
+          <td>208</td>
+          <td>2026-09-30</td>
+        </tr>
+        <tr>
+          <td>Ask HN: How do you evaluate multi-agent systems in production?</td>
+          <td>274</td>
+          <td>166</td>
+          <td>2026-09-29</td>
+        </tr>
+        <tr>
+          <td>The hidden cost of tool-calling retries</td>
+          <td>198</td>
+          <td>74</td>
+          <td>2026-09-29</td>
+        </tr>
+        <tr>
+          <td>A minimal MCP server in 200 lines</td>
+          <td>163</td>
+          <td>51</td>
+          <td>2026-09-28</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Discussion themes</h2>
+
+    <h3>Durable execution</h3>
+    <p>
+      The top thread argues that checkpointing node results is the single feature that makes
+      long-running agents operable, and that hand-rolled retry loops are where most teams
+      lose time. Several commenters compare the approach to Temporal-style workflow engines.
+    </p>
+
+    <h3>Evaluation</h3>
+    <p>
+      A recurring complaint is the lack of a shared evaluation harness for multi-agent
+      systems: teams report building bespoke traces and scoring scripts, rarely sharing them.
+    </p>
+
+    <h3>Tool-calling cost</h3>
+    <p>
+      Multiple commenters report that retry storms around flaky tools dominate their token
+      spend, and that per-tool rate limiting is a cheap mitigation.
+    </p>
+  </main>
+
+  <footer role="contentinfo">
+    <p>Mock Page for Demo · 本页为演示用伪造内容，非 Hacker News 真实数据</p>
+  </footer>
+</body>
+</html>

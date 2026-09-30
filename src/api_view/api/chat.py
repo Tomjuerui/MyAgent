@@ -57,7 +57,7 @@ async def stream_chat_response(
     核心流式响应生成器
 
     双流模式（subgraphs=True 时输出为 3-tuple）：
-    - (namespace, "values", data): 检测中断（interrupts 字段）
+    - (namespace, "values", data): 检测中断（__interrupt__ 字段）
     - (namespace, "messages", data): 逐 token 输出 + 工具调用事件
 
     消息累积：
@@ -164,37 +164,44 @@ async def stream_chat_response(
                                 })
 
                     # --- 中断检测 ---
-                    if chunk.get("interrupts"):
-                        for interrupt_item in chunk["interrupts"]:
+                    # LangGraph 把中断放在 state 的 __interrupt__ 键；此前只读了不存在的
+                    # "interrupts"，导致中断一律走不到这里、done 事件的 interrupted 恒为 false。
+                    interrupts = chunk.get("__interrupt__") or chunk.get("interrupts")
+                    if interrupts:
+                        for interrupt_item in interrupts:
                             interrupt_value = (
                                 interrupt_item.value
                                 if hasattr(interrupt_item, "value")
                                 else interrupt_item
                             )
-                            if isinstance(interrupt_value, dict):
-                                # 判断中断类型
-                                if interrupt_value.get("type") == "order_info_request":
-                                    yield sse_event("interrupt", {
-                                        "interrupt_type": "order_info_supplement",
-                                        "missing_fields": interrupt_value.get("missing_fields", []),
-                                        "message": interrupt_value.get("message", ""),
-                                        "extracted_data": interrupt_value.get("current_data", {}),
-                                    })
-                                elif "action_requests" in interrupt_value:
-                                    yield sse_event("interrupt", {
-                                        "interrupt_type": "hitl_approval",
-                                        "tool_name": interrupt_value.get("tool_name", ""),
-                                        "tool_args": interrupt_value.get("action_requests", {}),
-                                        "order_data": interrupt_value.get("action_requests", {}),
-                                    })
-                                else:
-                                    # 通用中断（interrupt_on 触发的审批）
-                                    yield sse_event("interrupt", {
-                                        "interrupt_type": "hitl_approval",
-                                        "tool_name": interrupt_value.get("tool_name", ""),
-                                        "tool_args": interrupt_value.get("tool_args", interrupt_value),
-                                        "order_data": interrupt_value.get("tool_args", interrupt_value),
-                                    })
+                            if not isinstance(interrupt_value, dict):
+                                continue
+                            # 判断中断类型
+                            if interrupt_value.get("type") == "order_info_request":
+                                yield sse_event("interrupt", {
+                                    "interrupt_type": "order_info_supplement",
+                                    "missing_fields": interrupt_value.get("missing_fields", []),
+                                    "message": interrupt_value.get("message", ""),
+                                    "extracted_data": interrupt_value.get("current_data", {}),
+                                })
+                                continue
+                            # HumanInTheLoopMiddleware 的负载是
+                            # {"action_requests": [{"name", "args", "description"}], "review_configs": [...]}，
+                            # 归一化成 ApprovalCard 需要的 tool_name / tool_args 形状；
+                            # 否则前端会把列表下标当成字段名渲染成一堆 "0" 行。
+                            requests_ = interrupt_value.get("action_requests") or []
+                            first = (
+                                requests_[0]
+                                if requests_ and isinstance(requests_[0], dict)
+                                else {}
+                            )
+                            args = first.get("args") if isinstance(first.get("args"), dict) else {}
+                            yield sse_event("interrupt", {
+                                "interrupt_type": "hitl_approval",
+                                "tool_name": first.get("name", ""),
+                                "tool_args": args,
+                                "order_data": args,
+                            })
 
                         # 保存当前累积的消息
                         if assistant_content:

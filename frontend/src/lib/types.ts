@@ -214,7 +214,7 @@ export interface ResumeRequest {
 // ===== 功能条目 =====
 // icon 为自绘线性图标的 key，不再使用 emoji
 export interface CapabilityCard {
-  icon: "analysis" | "order" | "inventory" | "parts";
+  icon: "analysis" | "order" | "inventory" | "parts" | "release" | "sentiment";
   title: string;
   description: string;
   prompt: string;

@@ -47,6 +47,21 @@ const PATHS: Record<IconKey, React.ReactNode> = {
       <line x1="17.5" y1="14.5" x2="21" y2="14.5" />
     </>
   ),
+  // 发版追踪 — 版本标签
+  release: (
+    <>
+      <path d="M3.5 11.5V4.5h7l10 10-7 7z" />
+      <circle cx="8" cy="8.5" r="1.4" />
+    </>
+  ),
+  // 社区舆情 — 对话气泡
+  sentiment: (
+    <>
+      <path d="M3.5 5.5h17v10h-9l-5 4v-4h-3z" />
+      <line x1="7.5" y1="9" x2="16.5" y2="9" />
+      <line x1="7.5" y1="12.5" x2="13.5" y2="12.5" />
+    </>
+  ),
 };
 
 interface Props {

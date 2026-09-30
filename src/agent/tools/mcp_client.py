@@ -13,7 +13,7 @@ from typing import List
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from ..config import MCP_SERVER_URL, MCP_SSE_URL
+from ..config import MCP_SERVER_URL, MCP_SSE_URL, WEBINTEL_MCP_URL
 from ..log_utils import mcp_logger
 
 # 重试配置
@@ -44,21 +44,37 @@ async def load_mcp_tools(force_refresh: bool = False) -> List[BaseTool]:
         if time.time() - _cache_time < CACHE_TTL:
             return _cached_tools
 
-    mcp_logger.info(f"Connecting to MCP Server: {MCP_SSE_URL}")
+    mcp_logger.info(f"Connecting to MCP Servers: erp={MCP_SSE_URL}, webintel={WEBINTEL_MCP_URL}")
 
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
+            # 双 server：erp 走 SSE（:9000），webintel 走 streamable-http（:9002）。
+            # 分进程部署，Playwright 崩溃/OOM 不会连带采购工具域失效。
             client = MultiServerMCPClient(
                 {
                     "erp": {
                         "url": MCP_SSE_URL,
                         "transport": "sse",
-                    }
+                    },
+                    "webintel": {
+                        "url": WEBINTEL_MCP_URL,
+                        "transport": "streamable_http",
+                    },
                 }
             )
 
-            tools = await client.get_tools()
+            try:
+                tools = await client.get_tools()
+            except Exception as webintel_error:
+                # webintel 未起时不能让采购工具域一起失效：降级为仅 ERP。
+                mcp_logger.warning(
+                    f"Combined MCP connect failed ({webintel_error}); retrying with ERP only"
+                )
+                client = MultiServerMCPClient(
+                    {"erp": {"url": MCP_SSE_URL, "transport": "sse"}}
+                )
+                tools = await client.get_tools()
 
             if tools:
                 _cached_tools = tools

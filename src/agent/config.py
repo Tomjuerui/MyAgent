@@ -43,6 +43,10 @@ MONGODB_DB_NAME = get_env("MONGODB_DB_NAME", "erp_agent")
 MCP_SERVER_URL = get_env("MCP_SERVER_URL", "http://localhost:9000")
 MCP_SSE_URL = f"{MCP_SERVER_URL}/sse"
 
+# WebIntel-MCP（独立进程的只读网页采集 MCP，streamable-http :9002）
+# Docker 内走服务名；本地开发指向 localhost
+WEBINTEL_MCP_URL = get_env("WEBINTEL_MCP_URL", "http://localhost:9002/mcp")
+
 # ============ 沙箱配置 ============
 SANDBOX_IMAGE = get_env("SANDBOX_IMAGE", "python:3.11-slim")#Docker 镜像名称，具体是 Python 3.11 的 slim（精简）版本
 SANDBOX_WORK_DIR = "/workspace"
@@ -59,7 +63,11 @@ MAX_TOOL_CALLS = get_env_int("MAX_TOOL_CALLS", 30)
 SUMMARIZATION_THRESHOLD = 0.85  # 85% 上下文窗口时触发摘要
 
 # ============ 中断配置 ============
+# 兜底层：白名单外域名时 WebIntel-MCP 会返回结构化 domain_not_allowed 错误，
+# 子 Agent YAML 的 interrupt_on 是主拦截路径，这里是全局兜底（含文档生成）。
 INTERRUPT_ON_TOOLS = {
     "order_create": {"allowed_decisions": ["approve", "reject"]},
     "order_update": {"allowed_decisions": ["approve", "reject"]},
+    "mcp_browser_navigate": {"allowed_decisions": ["approve", "reject"]},
+    "generate_document": {"allowed_decisions": ["approve", "reject"]},
 }

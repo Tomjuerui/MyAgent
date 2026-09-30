@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Mock Web · Demo Site</title>
+</head>
+<body>
+  <main>
+    <h1>Mock Web · 离线演示站点</h1>
+    <p>
+      本服务仅在 <code>DEMO_MODE=true</code> 时被访问：webintel-mcp 会把所有采集请求的
+      host 改写成 <code>mock-web</code>，路径原样保留，由本静态站点按路径返回假页面。
+    </p>
+
+    <h2>可用路径</h2>
+    <table>
+      <thead>
+        <tr><th>Path</th><th>模拟来源</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>/langchain-ai/langgraph/releases/</td>
+          <td>github.com/langchain-ai/langgraph</td>
+          <td>发版追踪（版本表 + changelog）</td>
+        </tr>
+        <tr>
+          <td>/crewai/crewai/releases/</td>
+          <td>github.com/crewai/crewai</td>
+          <td>发版追踪（版本表 + changelog）</td>
+        </tr>
+        <tr>
+          <td>/microsoft/autogen/releases/</td>
+          <td>github.com/microsoft/autogen</td>
+          <td>发版追踪（版本表 + changelog）</td>
+        </tr>
+        <tr>
+          <td>/hackernews/</td>
+          <td>news.ycombinator.com</td>
+          <td>社区舆情（热帖 + 票数/评论数）</td>
+        </tr>
+        <tr>
+          <td>/abs/2401.00001/</td>
+          <td>arxiv.org</td>
+          <td>论文摘要</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>数据均为演示用伪造内容，不具备任何事实效力。</p>
+  </main>
+
+  <footer>
+    <p>Mock Page for Demo</p>
+  </footer>
+</body>
+</html>

@@ -123,6 +123,9 @@ services:
       MCP_SERVER_URL: http://mcp-server:9000
       WEBINTEL_MCP_URL: http://webintel-mcp:9002/mcp
       ERP_BASE_URL: http://mock-erp:8081
+      # 与 webintel-mcp 同一个开关：置 true 时 backend 会把「当前为离线演示」注入系统提示词，
+      # 否则模型识别出 mock 页面的 Demo 标记后会拒绝产出
+      DEMO_MODE: ${DEMO_MODE:-false}
       SANDBOX_IMAGE: python:3.11-slim
     ports:
       - "8000:8000"
@@ -155,6 +158,21 @@ services:
       - crawl-artifacts:/artifacts
     ports:
       - "9002:9002"
+
+  # ---------- DEMO Mock 站点（nginx，仅 DEMO_MODE=true 时被访问） ----------
+  # DEMO_MODE 下 guards._demo_rewrite() 把请求 host 改写成 "mock-web"、路径原样保留，
+  # 所以容器名必须是 mock-web（与 WebIntel-MCP 同处默认网络，服务名即 DNS 名）。
+  # 一个兜底 server 块按 URL 路径返回 docker/mock-web/html/ 下的假页面，
+  # 供离线演示发版追踪 / 社区舆情 / 论文摘要，不依赖外网。
+  mock-web:
+    image: nginx:alpine
+    container_name: mock-web
+    restart: unless-stopped
+    volumes:
+      - ./docker/mock-web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/mock-web/html:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
 
   # ---------- 前端 Next.js (:3000) ----------
   frontend:

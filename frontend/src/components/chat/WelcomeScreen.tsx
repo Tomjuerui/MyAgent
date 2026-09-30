@@ -5,28 +5,22 @@ import CapabilityCardComponent from "@/components/common/CapabilityCard";
 
 const CARDS: CapabilityCard[] = [
   {
+    icon: "release",
+    title: "Agent 框架发版追踪",
+    description: "采集主流框架 releases 页，提取版本表与变更条目",
+    prompt: "分析上周主流 Agent 框架（LangGraph / CrewAI / AutoGen）的发版动态",
+  },
+  {
+    icon: "sentiment",
+    title: "社区舆情摘要",
+    description: "抓取技术社区热帖，按热度量化汇总关注焦点",
+    prompt: "抓取 HackerNews 今日 AI 相关热帖，输出舆情摘要",
+  },
+  {
     icon: "analysis",
-    title: "供应商分析",
-    description: "多维度比对供应商，产出可视化对比报告",
-    prompt: "帮我对所有供应商进行综合分析，生成对比图表",
-  },
-  {
-    icon: "order",
-    title: "采购下单",
-    description: "创建采购订单，缺字段会自动追问并走审批",
-    prompt: "帮我新增一个采购订单",
-  },
-  {
-    icon: "inventory",
-    title: "库存预警",
-    description: "监控库存水位，列出低于安全线的元器件",
-    prompt: "查看当前库存预警信息",
-  },
-  {
-    icon: "parts",
-    title: "零部件查询",
-    description: "检索零部件规格、价格与关联供应商",
-    prompt: "查询所有零部件的库存和价格信息",
+    title: "技术路线对比研报",
+    description: "多来源特性覆盖度对比，产出带图表的可追溯研报",
+    prompt: "对比 LangGraph 与 CrewAI 的特性覆盖度，生成带图表的研报",
   },
 ];
 
@@ -41,7 +35,7 @@ export default function WelcomeScreen({ onPromptClick }: Props) {
         {/* 系统状态 */}
         <div className="ic-panel">
           <div className="flex items-center justify-between px-4 py-2 border-b border-line-200">
-            <span className="ic-label">采购控制台</span>
+            <span className="ic-label">技术情报控制台</span>
             <span className="ic-tag ic-tag-go">
               <span
                 className="inline-block w-1.5 h-1.5"
@@ -52,11 +46,11 @@ export default function WelcomeScreen({ onPromptClick }: Props) {
           </div>
           <div className="px-4 py-4">
             <h1 className="text-[19px] font-medium tracking-tight text-ink-900">
-              今天要先处理哪件事
+              今天要追踪哪条技术动态
             </h1>
             <p className="mt-1.5 text-[13px] leading-relaxed text-ink-500">
-              已接入 ERP 的供应商、订单、库存与零部件数据。
-              选择下面的指令开始，或直接描述你要做的事。
+              已接入只读网页采集 MCP（发版页 / 社区热帖 / 论文摘要），
+              所有结论附来源链接。选择下面的指令开始，或直接描述你要追踪的对象。
             </p>
           </div>
         </div>

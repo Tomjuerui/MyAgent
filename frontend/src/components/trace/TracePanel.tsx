@@ -38,11 +38,44 @@ const ERP_TOOL_PATTERN =
   /^(supplier_|part_|inventory_|order_|purchase_|bom_|price_|request_order|generate_chart)/;
 
 function toolSource(name: string): string | null {
+  if (name.startsWith("mcp_browser_")) return "网页采集";
   if (ERP_TOOL_PATTERN.test(name)) return "ERP 接口";
   if (name === "task") return "子智能体";
   if (name === "write_todos") return "计划";
   if (name === "execute") return "沙箱";
   return null;
+}
+
+// webintel-mcp 的采集指标。result_preview 会被后端裁到 500 字符，
+// 故用正则从（可能被截断的）JSON 前缀里取值，而不是 JSON.parse。
+const ELAPSED_RE = /"elapsed_ms"\s*:\s*(\d+)/;
+const CHARS_RE = /"extracted_chars"\s*:\s*(\d+)/;
+const ROWS_RE = /"row_counts"\s*:\s*\[([0-9,\s]*)\]/;
+
+interface BrowserMetrics {
+  elapsedMs?: number;
+  chars?: number;
+  rows?: number[];
+}
+
+function browserMetrics(s: TraceSpan): BrowserMetrics | null {
+  if (s.kind !== "tool" || !s.name.startsWith("mcp_browser_") || !s.result_preview) {
+    return null;
+  }
+  const preview = s.result_preview;
+  const elapsed = ELAPSED_RE.exec(preview);
+  const chars = CHARS_RE.exec(preview);
+  const rows = ROWS_RE.exec(preview);
+  const metrics: BrowserMetrics = {};
+  if (elapsed) metrics.elapsedMs = Number(elapsed[1]);
+  if (chars) metrics.chars = Number(chars[1]);
+  if (rows) {
+    metrics.rows = rows[1]
+      .split(",")
+      .map((v) => Number(v.trim()))
+      .filter((v) => !Number.isNaN(v));
+  }
+  return Object.keys(metrics).length > 0 ? metrics : null;
 }
 
 function isStep(s: TraceSpan): boolean {
@@ -371,6 +404,7 @@ export default function TracePanel({
             const open = expanded.has(s.span_id);
             const step = isStep(s);
             const source = s.kind === "tool" ? toolSource(s.name) : null;
+            const metrics = browserMetrics(s);
 
             return (
               <div
@@ -445,6 +479,34 @@ export default function TracePanel({
                     {s.kind !== "llm" && s.subtree_total > 0 && (
                       <div className="text-gray-600">
                         含子项 token: {fmtTokens(s.subtree_total)}
+                      </div>
+                    )}
+                    {metrics && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {metrics.elapsedMs !== undefined && (
+                          <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700">
+                            网站响应耗时{" "}
+                            <span className="font-mono font-medium">
+                              {fmtDuration(metrics.elapsedMs)}
+                            </span>
+                          </span>
+                        )}
+                        {metrics.chars !== undefined && (
+                          <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700">
+                            提取字符数{" "}
+                            <span className="font-mono font-medium">
+                              {metrics.chars.toLocaleString()}
+                            </span>
+                          </span>
+                        )}
+                        {metrics.rows && (
+                          <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700">
+                            表格行数{" "}
+                            <span className="font-mono font-medium">
+                              {metrics.rows.join(" / ")}
+                            </span>
+                          </span>
+                        )}
                       </div>
                     )}
                     {s.error && (

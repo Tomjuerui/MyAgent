@@ -25,7 +25,7 @@ from .config import (
 )
 from .schema import ProcurementContext
 from .log_utils import agent_logger
-from .memory.prompts import MAIN_SYSTEM_PROMPT
+from .memory.prompts import MAIN_SYSTEM_PROMPT, DEMO_MODE_NOTICE
 
 # 项目路径
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -341,6 +341,11 @@ def create_main_agent(
     # 注入子Agent委派上下文协议
     if delegation_prompt:
         system_prompt += delegation_prompt
+
+    # DEMO_MODE 下必须显式告知模型，否则它会识别出 mock 页面的标记后拒绝产出
+    if os.getenv("DEMO_MODE", "false").strip().lower() in ("1", "true", "yes"):
+        system_prompt += DEMO_MODE_NOTICE
+        agent_logger.info("DEMO_MODE notice appended to system prompt")
 
     # ===== 6.5 手动加载 Skill 内容注入提示词 =====
     # 框架内置 skills 加载器无法解析含中文/空格的路径，改为手动加载

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>[2401.00001] Durable Execution for Multi-Agent LLM Systems</title>
+</head>
+<body>
+  <nav aria-label="Main">
+    <a href="/">arXiv</a>
+    <a href="/list/cs.AI/recent">Recent</a>
+    <a href="/search">Search</a>
+  </nav>
+
+  <main role="main">
+    <h1>Durable Execution for Multi-Agent LLM Systems</h1>
+    <p>
+      <strong>Mock Page for Demo</strong> · 本页为演示用伪造内容，不是 arXiv 真实论文
+    </p>
+    <p>
+      Authors: J. Nakamura, L. Fischer, R. Iyer<br />
+      Submitted: 2026-09-12 · Subject: cs.AI, cs.MA
+    </p>
+
+    <h2>Abstract</h2>
+    <p>
+      We study checkpointing strategies for long-running multi-agent LLM pipelines. We show that
+      persisting a node's result before scheduling its successors bounds recovery time to a single
+      node's execution rather than an entire run. Across three orchestration frameworks we observe
+      a 34-71% reduction in re-executed model calls after a mid-run failure, at the cost of one
+      extra write per node. We further show that per-tool rate limiting removes the retry storms
+      that dominate token spend under flaky tool backends. Our results suggest that durability
+      and admission control, not prompt engineering, are the dominant lever on agent operating cost.
+    </p>
+
+    <h2>Method summary</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Mechanism</th>
+          <th>Reported effect</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Checkpoint store</td>
+          <td>Write node result before scheduling successors</td>
+          <td>Recovery bounded to one node</td>
+        </tr>
+        <tr>
+          <td>Snapshot format</td>
+          <td>Incremental state deltas</td>
+          <td>-30% checkpoint size</td>
+        </tr>
+        <tr>
+          <td>Tool admission</td>
+          <td>Per-tool token bucket</td>
+          <td>Removes retry storms</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Limitations</h2>
+    <p>
+      Evaluation is confined to three open-source frameworks and synthetic failure injection;
+      we do not measure production workloads, and the retry-storm finding relies on a single
+      tool backend with injected latency.
+    </p>
+  </main>
+
+  <footer role="contentinfo">
+    <p>Mock Page for Demo · 本页为演示用伪造内容，非 arXiv 真实论文</p>
+  </footer>
+</body>
+</html>

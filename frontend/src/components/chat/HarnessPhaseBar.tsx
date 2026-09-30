@@ -13,10 +13,12 @@ const PHASES = [
   { key: "planning", label: "规划", icon: ListChecks },
   { key: "executing", label: "执行", icon: Cog },
   { key: "reviewing", label: "审查", icon: SearchCheck },
-  { key: "done", label: "完成", icon: CheckCircle2 },
+  // 后端（src/api_view/api/chat.py 的 PHASE_LABELS 与 harness_config.yaml 的 phases）
+  // 发的是 "result"，此前这里写 "done" 导致 currentIdx === -1、五格全程置灰
+  { key: "result", label: "完成", icon: CheckCircle2 },
 ];
 
-const PHASE_ORDER = ["thinking", "planning", "executing", "reviewing", "done"];
+const PHASE_ORDER = ["thinking", "planning", "executing", "reviewing", "result"];
 
 /**
  * 阶段状态条

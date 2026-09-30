@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Releases · langchain-ai/langgraph</title>
+</head>
+<body>
+  <nav aria-label="Global">
+    <a href="/">Home</a>
+    <a href="/issues">Issues</a>
+    <a href="/pulls">Pull requests</a>
+    <a href="/actions">Actions</a>
+    <a href="/wiki">Wiki</a>
+  </nav>
+
+  <header role="banner">
+    <p>Skip to content</p>
+    <input type="search" placeholder="Search or jump to..." />
+  </header>
+
+  <main role="main">
+    <h1>Releases · langchain-ai/langgraph</h1>
+    <p>
+      <strong>Mock Page for Demo</strong> · 本页为演示用伪造内容，不是 GitHub 真实数据
+    </p>
+    <p>
+      LangGraph is a library for building stateful, multi-actor applications with LLMs.
+      This page lists published releases, newest first.
+    </p>
+
+    <h2>Release overview</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Release Date</th>
+          <th>Highlights</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>0.6.0</td>
+          <td>2026-09-18</td>
+          <td>Durable execution improvements; new checkpoint backend interface</td>
+        </tr>
+        <tr>
+          <td>0.5.4</td>
+          <td>2026-09-05</td>
+          <td>Interrupt payload validation; smaller state snapshots</td>
+        </tr>
+        <tr>
+          <td>0.5.0</td>
+          <td>2026-08-21</td>
+          <td>First stable 0.5 line; node-level retry policies</td>
+        </tr>
+        <tr>
+          <td>0.4.12</td>
+          <td>2026-08-07</td>
+          <td>Thread listing pagination; fixes for async streaming</td>
+        </tr>
+        <tr>
+          <td>0.4.9</td>
+          <td>2026-07-24</td>
+          <td>Time-travel debugging API; store namespace isolation</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Changelog</h2>
+
+    <details open>
+      <summary>v0.6.0</summary>
+      <h3>v0.6.0 — 2026-09-18</h3>
+      <p>Released 2026-09-18 · 41 commits · 12 contributors</p>
+      <ul>
+        <li>Durable execution: node results are now persisted before the next node is scheduled.</li>
+        <li>New checkpoint backend interface, with optional TTL on thread checkpoints.</li>
+        <li>Breaking: <code>StateGraph.add_node</code> no longer accepts a bare callable in 0.6.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>v0.5.4</summary>
+      <h3>v0.5.4 — 2026-09-05</h3>
+      <p>Released 2026-09-05 · 23 commits · 8 contributors</p>
+      <ul>
+        <li>Interrupt payloads are validated against the declared schema before surfacing.</li>
+        <li>State snapshots are written incrementally, cutting checkpoint size by ~30%.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>v0.5.0</summary>
+      <h3>v0.5.0 — 2026-08-21</h3>
+      <p>Released 2026-08-21 · 67 commits · 19 contributors</p>
+      <ul>
+        <li>First stable release of the 0.5 line.</li>
+        <li>Node-level retry policies with backoff.</li>
+        <li>Subgraph composition is no longer marked experimental.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>v0.4.12</summary>
+      <h3>v0.4.12 — 2026-08-07</h3>
+      <p>Released 2026-08-07 · 15 commits · 6 contributors</p>
+      <ul>
+        <li>Paginated thread listing.</li>
+        <li>Fixed a race in async streaming when a node raised immediately.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>v0.4.9</summary>
+      <h3>v0.4.9 — 2026-07-24</h3>
+      <p>Released 2026-07-24 · 29 commits · 11 contributors</p>
+      <ul>
+        <li>Time-travel debugging API for replaying a thread from any checkpoint.</li>
+        <li>Store namespaces are isolated per assistant.</li>
+      </ul>
+    </details>
+  </main>
+
+  <footer role="contentinfo">
+    <p>Mock Page for Demo · 本页为演示用伪造内容，非 GitHub 真实数据</p>
+  </footer>
+</body>
+</html>
