@@ -52,6 +52,9 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
       - /workspace:rw,noexec,nosuid,size=256m
+    volumes:
+      # webintel-mcp 落盘的截图/原始 HTML；backend 经 download_sandbox_file.py 读取
+      - crawl-artifacts:/workspace/artifacts
     cap_drop:
       - ALL
     cap_add:
@@ -118,6 +121,7 @@ services:
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       MONGODB_URI: mongodb://mongo:27017
       MCP_SERVER_URL: http://mcp-server:9000
+      WEBINTEL_MCP_URL: http://webintel-mcp:9002/mcp
       ERP_BASE_URL: http://mock-erp:8081
       SANDBOX_IMAGE: python:3.11-slim
     ports:
@@ -131,6 +135,26 @@ services:
         condition: service_healthy
       mcp-server:
         condition: service_healthy
+
+  # ---------- WebIntel MCP (:9002, streamable-http) ----------
+  # 独立仓库的只读网页采集 MCP：安全闸门（scheme/DNS/SSRF/白名单/限速）+ Playwright 无头采集。
+  # 与 ERP MCP 分进程：Playwright 的 300MB 只落在本镜像，浏览器 OOM 不拖垮采购工具域。
+  # 注意：context 是相对 MyAgent 根目录的实机路径（两仓库非兄弟目录）。
+  webintel-mcp:
+    build:
+      context: ../../Brower_Use/webintel-mcp
+      dockerfile: docker/Dockerfile
+    image: myagent-webintel-mcp:local
+    container_name: myagent-webintel-mcp
+    restart: unless-stopped
+    environment:
+      CRAWL_ALLOW_DOMAINS: ${CRAWL_ALLOW_DOMAINS:-github.com,news.ycombinator.com,arxiv.org}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      WEBINTEL_ARTIFACTS_DIR: /artifacts
+    volumes:
+      - crawl-artifacts:/artifacts
+    ports:
+      - "9002:9002"
 
   # ---------- 前端 Next.js (:3000) ----------
   frontend:
@@ -152,3 +176,4 @@ services:
 volumes:
   mongo-data:
   download-data:
+  crawl-artifacts:
