@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { ChatMessage, ToolCallInfo, SSEEvent, InterruptData, TodoItem, TraceSpan, TraceStats } from "@/lib/types";
-import { streamChat, resumeChat } from "@/lib/api";
+import { ChatMessage, ToolCallInfo, SSEEvent, InterruptData, TodoItem, TraceSpan, TraceStats, TraceRunSummary } from "@/lib/types";
+import { streamChat, resumeChat, fetchTrace, fetchTraceRuns } from "@/lib/api";
 import { useSSE } from "./useSSE";
 
 const USER_ID = "user-001";
@@ -26,6 +26,11 @@ export function useChat() {
   const [pendingQueue, setPendingQueue] = useState<string[]>([]);
   const [traceSpans, setTraceSpans] = useState<TraceSpan[]>([]);
   const [traceStats, setTraceStats] = useState<TraceStats | null>(null);
+  const [traceRuns, setTraceRuns] = useState<TraceRunSummary[]>([]);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
 
   const assistantMsgRef = useRef<string>("");
   const toolCallsRef = useRef<ToolCallInfo[]>([]);
@@ -177,12 +182,22 @@ export function useChat() {
 
         case "trace_end":
           setTraceStats(event.stats);
+          setActiveRunId(event.run_id);
           break;
 
         case "done":
           setStreaming(false);
           setPhase("done");
           setPhaseLabel("✅ 完成");
+          // 本轮 trace 已在 done 之前落库，刷新 run 列表供切换查看
+          {
+            const id = threadIdRef.current;
+            fetchTraceRuns(id)
+              .then((runs) => {
+                if (threadIdRef.current === id) setTraceRuns(runs);
+              })
+              .catch(() => {});
+          }
           setTodoItems((prev) =>
             prev.map((item) =>
               item.status !== "cancelled" ? { ...item, status: "complete" as const } : item
@@ -231,6 +246,7 @@ export function useChat() {
       // 新一轮提问 → 清空上一轮链路；resume 走的路径不清（审批恢复属于同一轮）
       setTraceSpans([]);
       setTraceStats(null);
+      setActiveRunId(null);
 
       const userMsg: ChatMessage = {
         id: uuidv4(),
@@ -303,6 +319,10 @@ export function useChat() {
     setPendingQueue([]);
     pendingQueueRef.current = [];
     resetAssistantState();
+    setTraceSpans([]);
+    setTraceStats(null);
+    setTraceRuns([]);
+    setActiveRunId(null);
   }, [abort, resetAssistantState]);
 
   const loadThread = useCallback(
@@ -315,8 +335,47 @@ export function useChat() {
       setInterruptData(null);
       setError(null);
       resetAssistantState();
+      setTraceSpans([]);
+      setTraceStats(null);
+      setTraceRuns([]);
+      setActiveRunId(null);
+      // 历史会话的链路已落库：并行拉「run 列表」和「最近一次 run 的 spans」
+      fetchTraceRuns(id)
+        .then((runs) => {
+          if (threadIdRef.current !== id) return; // 用户已切走
+          setTraceRuns(runs);
+        })
+        .catch(() => {});
+      fetchTrace(id)
+        .then((trace) => {
+          if (threadIdRef.current !== id) return;
+          setTraceSpans(trace.spans ?? []);
+          setTraceStats(trace.stats ?? null);
+          setActiveRunId(trace.run_id ?? null);
+        })
+        .catch(() => {});
     },
     [abort, resetAssistantState]
+  );
+
+  const selectTraceRun = useCallback(
+    (runId: string | null) => {
+      const id = threadIdRef.current;
+      setActiveRunId(runId);
+      if (!runId) {
+        setTraceSpans([]);
+        setTraceStats(null);
+        return;
+      }
+      fetchTrace(id, runId)
+        .then((trace) => {
+          if (threadIdRef.current !== id) return;
+          setTraceSpans(trace.spans ?? []);
+          setTraceStats(trace.stats ?? null);
+        })
+        .catch(() => {});
+    },
+    []
   );
 
   return {
@@ -334,6 +393,9 @@ export function useChat() {
     phaseLabel,
     traceSpans,
     traceStats,
+    traceRuns,
+    activeRunId,
+    selectTraceRun,
     sendMessage,
     resumeWith,
     newChat,

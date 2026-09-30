@@ -124,6 +124,15 @@ export interface TraceRun {
   stats: TraceStats | null;
 }
 
+// /trace/runs 返回的轻量条目（不含 spans）
+export interface TraceRunSummary {
+  run_id: string;
+  started_at: string;
+  ended_at: string;
+  status: string;
+  stats: TraceStats | null;
+}
+
 export type SSEEvent =
   | SSETokenEvent
   | SSEToolStartEvent

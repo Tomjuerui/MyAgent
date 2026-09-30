@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChatMessage, InterruptData, TodoItem, TraceSpan } from "@/lib/types";
+import { ChatMessage, InterruptData, TodoItem, TraceRunSummary, TraceSpan, TraceStats } from "@/lib/types";
 import MessageList from "./MessageList";
 import WelcomeScreen from "./WelcomeScreen";
 import InputBar from "./InputBar";
@@ -24,6 +24,10 @@ interface Props {
   phase: string;
   phaseLabel: string;
   traceSpans: TraceSpan[];
+  traceStats: TraceStats | null;
+  traceRuns: TraceRunSummary[];
+  activeRunId: string | null;
+  onSelectTraceRun: (runId: string | null) => void;
   onSend: (msg: string) => void;
   onSupplement: (text: string) => void;
   onApprove: () => void;
@@ -42,6 +46,10 @@ export default function ChatArea({
   phase,
   phaseLabel,
   traceSpans,
+  traceStats,
+  traceRuns,
+  activeRunId,
+  onSelectTraceRun,
   onSend,
   onSupplement,
   onApprove,
@@ -65,6 +73,11 @@ export default function ChatArea({
               }
             >
               执行链路
+              {traceSpans.length > 0 && (
+                <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">
+                  {traceSpans.length}
+                </span>
+              )}
             </button>
             <ToolCallToggle show={showToolCalls} onToggle={setShowToolCalls} />
           </div>
@@ -108,7 +121,11 @@ export default function ChatArea({
       {showTrace && (
         <TracePanel
           spans={traceSpans}
+          stats={traceStats}
           streaming={streaming}
+          runs={traceRuns}
+          activeRunId={activeRunId}
+          onSelectRun={onSelectTraceRun}
           onClose={() => setShowTrace(false)}
         />
       )}

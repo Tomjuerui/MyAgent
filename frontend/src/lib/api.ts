@@ -1,4 +1,4 @@
-import { Conversation, ChatRequest, ResumeRequest, TraceRun } from "./types";
+import { Conversation, ChatRequest, ResumeRequest, TraceRun, TraceRunSummary } from "./types";
 
 const BASE_URL = "http://localhost:8000/api";
 
@@ -66,6 +66,13 @@ export async function fetchTrace(threadId: string, runId?: string): Promise<Trac
   const res = await fetch(`${BASE_URL}/chat/${threadId}/trace${qs}`);
   if (!res.ok) throw new Error(`Trace failed: ${res.status}`);
   return res.json();
+}
+
+export async function fetchTraceRuns(threadId: string): Promise<TraceRunSummary[]> {
+  const res = await fetch(`${BASE_URL}/chat/${threadId}/trace/runs`);
+  if (!res.ok) throw new Error(`Trace runs failed: ${res.status}`);
+  const data = await res.json();
+  return data.runs ?? [];
 }
 
 export async function getChatState(threadId: string) {

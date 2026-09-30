@@ -93,6 +93,10 @@ export default function Home() {
         phase={chat.phase}
         phaseLabel={chat.phaseLabel}
         traceSpans={chat.traceSpans}
+        traceStats={chat.traceStats}
+        traceRuns={chat.traceRuns}
+        activeRunId={chat.activeRunId}
+        onSelectTraceRun={chat.selectTraceRun}
         onSend={chat.sendMessage}
         onSupplement={handleSupplement}
         onApprove={handleApprove}

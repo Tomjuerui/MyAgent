@@ -1,12 +1,62 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TraceSpan } from "@/lib/types";
+import { TraceRunSummary, TraceSpan, TraceStats } from "@/lib/types";
 
 interface Props {
   spans: TraceSpan[];
+  stats: TraceStats | null;
   streaming: boolean;
+  runs: TraceRunSummary[];
+  activeRunId: string | null;
+  onSelectRun: (runId: string | null) => void;
   onClose: () => void;
+}
+
+const KIND_LABEL: Record<string, string> = {
+  run: "本轮提问",
+  graph: "智能体",
+  node: "阶段",
+  llm: "模型",
+  tool: "工具",
+};
+
+// 徽章配色：一眼区分「模型调用 / 工具调用 / 阶段」
+const KIND_BADGE: Record<string, string> = {
+  run: "bg-gray-800 text-white",
+  graph: "bg-gray-200 text-gray-700",
+  node: "bg-teal-100 text-teal-800",
+  llm: "bg-blue-100 text-blue-800",
+  tool: "bg-purple-100 text-purple-800",
+};
+
+// 中间件钩子不是业务阶段，单独标成"步骤"并淡化，避免和 model/tools 节点混淆
+const MIDDLEWARE_RE = /Middleware\.|RunnableSequence|Pregel|LangGraph$/;
+
+// 工具名 → 来源提示。ERP 业务接口走 MCP，其余是框架内置工具。
+const ERP_TOOL_PATTERN =
+  /^(supplier_|part_|inventory_|order_|purchase_|bom_|price_|request_order|generate_chart)/;
+
+function toolSource(name: string): string | null {
+  if (ERP_TOOL_PATTERN.test(name)) return "ERP 接口";
+  if (name === "task") return "子智能体";
+  if (name === "write_todos") return "计划";
+  if (name === "execute") return "沙箱";
+  return null;
+}
+
+function isStep(s: TraceSpan): boolean {
+  return s.kind === "node" && MIDDLEWARE_RE.test(s.name);
+}
+
+function badgeLabel(s: TraceSpan): string {
+  if (isStep(s)) return "步骤";
+  return KIND_LABEL[s.kind] ?? s.kind;
+}
+
+function badgeClass(s: TraceSpan): string {
+  if (isStep(s)) return "bg-gray-100 text-gray-500";
+  return KIND_BADGE[s.kind] ?? "bg-gray-100 text-gray-600";
 }
 
 function fmtDuration(ms: number | null): string {
@@ -19,26 +69,64 @@ function fmtTokens(n: number): string {
   return n > 0 ? n.toLocaleString() : "—";
 }
 
+function fmtTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
 function barClass(s: TraceSpan): string {
   if (s.status === "error") return "bg-red-500";
   if (s.status === "interrupted") return "bg-amber-400";
   if (s.status === "running") return "bg-blue-400 animate-pulse";
   if (s.kind === "llm") return "bg-blue-500";
-  if (s.kind === "tool") return "bg-blue-700";
-  if (s.kind === "node") return "bg-blue-300";
-  return "bg-blue-200";
+  if (s.kind === "tool") return "bg-purple-500";
+  if (isStep(s)) return "bg-gray-300";
+  if (s.kind === "node") return "bg-teal-400";
+  return "bg-gray-300";
 }
 
 function nameOf(s: TraceSpan): string {
   const prefix = s.agent && s.agent !== "main" ? `${s.agent} · ` : "";
-  const body = s.kind === "llm" || s.kind === "tool" ? `${s.kind} · ${s.name}` : s.name;
-  return prefix + body;
+  if (s.kind === "llm") return `${prefix}${s.model || s.name}`;
+  if (s.kind === "graph") {
+    // 框架不给图 run 起名，回调侧回落成 "chain"
+    if (s.name && !/^(chain|LangGraph|Pregel)$/i.test(s.name)) return prefix + s.name;
+    return prefix + "智能体图";
+  }
+  return prefix + s.name;
 }
 
-export default function TracePanel({ spans, streaming, onClose }: Props) {
+type KindFilter = "all" | "llm" | "tool" | "node" | "step";
+
+const FILTER_LABEL: Record<KindFilter, string> = {
+  all: "全部",
+  llm: "模型",
+  tool: "工具",
+  node: "阶段",
+  step: "步骤",
+};
+
+function matchesFilter(s: TraceSpan, f: KindFilter): boolean {
+  if (f === "all") return true;
+  if (f === "step") return isStep(s);
+  if (f === "node") return s.kind === "node" && !isStep(s);
+  return s.kind === f;
+}
+
+export default function TracePanel({
+  spans,
+  stats,
+  streaming,
+  runs,
+  activeRunId,
+  onSelectRun,
+  onClose,
+}: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [onlyFailed, setOnlyFailed] = useState(false);
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
 
   const sorted = useMemo(
     () => [...spans].sort((a, b) => a.start_ms - b.start_ms || a.seq - b.seq),
@@ -70,6 +158,20 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
           }
         });
       list = sorted.filter((s) => keep.has(s.span_id));
+    } else {
+      // 按类型过滤：保留命中 span 及其祖先链，维持树形缩进
+      const keep = new Set<string>();
+      sorted
+        .filter((s) => matchesFilter(s, kindFilter))
+        .forEach((s) => {
+          let cur: string | null | undefined = s.span_id;
+          while (cur) {
+            if (keep.has(cur)) break;
+            keep.add(cur);
+            cur = byId.get(cur)?.parent_id ?? null;
+          }
+        });
+      list = sorted.filter((s) => keep.has(s.span_id));
     }
 
     // 按折叠状态裁剪（depth 语义：被折叠节点的更深层级一并隐藏）
@@ -89,24 +191,28 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
       if (collapsed.has(s.span_id)) collapsedDepths[s.depth] = true;
     }
     return out;
-  }, [sorted, onlyFailed, collapsed, byId]);
+  }, [sorted, onlyFailed, kindFilter, collapsed, byId]);
 
   const summary = useMemo(() => {
     if (sorted.length === 0) {
-      return { duration: 0, tokens: 0, llm: 0, tool: 0, failed: 0 };
+      return { duration: 0, tokensIn: 0, tokensOut: 0, tokens: 0, llm: 0, tool: 0, failed: 0 };
     }
     const now = Date.now();
     const start = Math.min(...sorted.map((s) => s.start_ms));
     const end = Math.max(...sorted.map((s) => s.end_ms ?? (streaming ? now : s.start_ms)));
     const body = sorted.filter((s) => s.kind !== "run");
     return {
-      duration: Math.max(end - start, 0),
-      tokens: body.filter((s) => s.kind === "llm").reduce((a, s) => a + s.tokens_total, 0),
-      llm: body.filter((s) => s.kind === "llm").length,
-      tool: body.filter((s) => s.kind === "tool").length,
-      failed: body.filter((s) => s.status === "error" || s.status === "interrupted").length,
+      duration: stats?.duration_ms ?? Math.max(end - start, 0),
+      tokensIn: stats?.tokens_in ?? 0,
+      tokensOut: stats?.tokens_out ?? 0,
+      tokens: stats?.tokens_total ?? body.filter((s) => s.kind === "llm").reduce((a, s) => a + s.tokens_total, 0),
+      llm: stats?.llm_calls ?? body.filter((s) => s.kind === "llm").length,
+      tool: stats?.tool_calls ?? body.filter((s) => s.kind === "tool").length,
+      failed:
+        stats?.error_count ??
+        body.filter((s) => s.status === "error" || s.status === "interrupted").length,
     };
-  }, [sorted, streaming]);
+  }, [sorted, stats, streaming]);
 
   const timeline = useMemo(() => {
     if (sorted.length === 0) return { start: 0, total: 1 };
@@ -137,7 +243,7 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
   const now = Date.now();
 
   return (
-    <aside className="fixed right-0 top-0 z-40 flex h-full w-[560px] max-w-[92vw] flex-col border-l border-gray-200 bg-white shadow-xl">
+    <aside className="fixed right-0 top-0 z-40 flex h-full w-[600px] max-w-[92vw] flex-col border-l border-gray-200 bg-white shadow-xl">
       <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-900">执行链路</span>
@@ -155,28 +261,66 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
         </button>
       </div>
 
+      {/* run 切换：本会话的历次提问 */}
+      {runs.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-5 py-2">
+          <span className="shrink-0 text-[11px] text-gray-400">轮次</span>
+          <select
+            value={activeRunId ?? ""}
+            onChange={(e) => onSelectRun(e.target.value || null)}
+            className="min-w-0 flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-[12px] text-gray-700"
+          >
+            {runs.map((r, i) => (
+              <option key={r.run_id} value={r.run_id}>
+                第 {runs.length - i} 轮 · {fmtTime(r.started_at)} ·{" "}
+                {r.status === "ok" ? "成功" : r.status === "error" ? "失败" : "中断"} ·{" "}
+                {fmtTokens(r.stats?.tokens_total ?? 0)} tokens
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="grid grid-cols-5 gap-2 border-b border-gray-200 px-5 py-3">
         <Metric label="总耗时" value={fmtDuration(summary.duration)} />
-        <Metric label="tokens" value={fmtTokens(summary.tokens)} />
+        <Metric
+          label="tokens 进/出"
+          value={
+            summary.tokensIn || summary.tokensOut
+              ? `${fmtTokens(summary.tokensIn)} / ${fmtTokens(summary.tokensOut)}`
+              : fmtTokens(summary.tokens)
+          }
+        />
         <Metric label="模型调用" value={String(summary.llm)} />
         <Metric label="工具调用" value={String(summary.tool)} />
-        <Metric
-          label="失败/中断"
-          value={String(summary.failed)}
-          danger={summary.failed > 0}
-        />
+        <Metric label="失败/中断" value={String(summary.failed)} danger={summary.failed > 0} />
       </div>
 
-      <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-2">
+      {/* 类型过滤 + 图例 */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 px-5 py-2">
+        {(["all", "llm", "tool", "node", "step"] as KindFilter[]).map((k) => (
+          <button
+            key={k}
+            onClick={() => {
+              setKindFilter(k);
+              setOnlyFailed(false);
+            }}
+            className={`rounded px-2 py-1 text-[11px] ${
+              kindFilter === k && !onlyFailed
+                ? "bg-gray-800 text-white"
+                : "text-gray-500 hover:bg-gray-100"
+            }`}
+          >
+            {FILTER_LABEL[k]}
+          </button>
+        ))}
         <button
           onClick={() => setOnlyFailed((v) => !v)}
           className={`rounded px-2 py-1 text-[11px] ${
-            onlyFailed
-              ? "bg-red-50 text-red-600"
-              : "text-gray-500 hover:bg-gray-100"
+            onlyFailed ? "bg-red-50 text-red-600 ring-1 ring-red-200" : "text-gray-500 hover:bg-gray-100"
           }`}
         >
-          仅看失败路径
+          仅看失败
         </button>
         <button
           onClick={() => setCollapsed(new Set())}
@@ -189,13 +333,32 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
         </span>
       </div>
 
+      <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-1.5">
+        {(["llm", "tool", "node", "step"] as const).map((k) => (
+          <span key={k} className="flex items-center gap-1 text-[10px] text-gray-500">
+            <span
+              className={`h-2 w-2 rounded-sm ${
+                k === "step" ? "bg-gray-300" : barClass({ kind: k } as TraceSpan)
+              }`}
+            />
+            {FILTER_LABEL[k]}
+          </span>
+        ))}
+        <span className="flex items-center gap-1 text-[10px] text-gray-500">
+          <span className="h-2 w-2 rounded-sm bg-red-500" />
+          失败
+        </span>
+      </div>
+
       <div className="flex-1 overflow-y-auto">
         {sorted.length === 0 ? (
           <div className="px-5 py-10 text-center text-xs text-gray-400">
             暂无链路数据
             <br />
             <span className="text-gray-300">
-              若后端未挂载 trace 回调，这里会一直为空
+              {runs.length > 0
+                ? "请在上方切换轮次查看历史链路"
+                : "该会话还没有已保存的执行链路"}
             </span>
           </div>
         ) : (
@@ -206,9 +369,14 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
             const width = Math.max((dur / timeline.total) * 100, 0.6);
             const isFailed = s.status === "error" || s.status === "interrupted";
             const open = expanded.has(s.span_id);
+            const step = isStep(s);
+            const source = s.kind === "tool" ? toolSource(s.name) : null;
 
             return (
-              <div key={s.span_id} className="border-b border-gray-50 px-5 py-2">
+              <div
+                key={s.span_id}
+                className={`border-b border-gray-50 px-5 py-2 ${step ? "opacity-70" : ""}`}
+              >
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleCollapse(s.span_id)}
@@ -221,8 +389,15 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
                       : ""}
                   </button>
                   <span
-                    className={`h-2 w-2 shrink-0 rounded-sm ${barClass(s)}`}
-                  />
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${badgeClass(s)}`}
+                  >
+                    {badgeLabel(s)}
+                  </span>
+                  {source && (
+                    <span className="shrink-0 rounded border border-purple-200 px-1 py-0.5 text-[10px] text-purple-600">
+                      {source}
+                    </span>
+                  )}
                   <button
                     onClick={() => toggleExpand(s.span_id)}
                     style={{ paddingLeft: `${s.depth * 12}px` }}
@@ -256,9 +431,10 @@ export default function TracePanel({ spans, streaming, onClose }: Props) {
                 {open && (
                   <div className="mt-2 space-y-1 rounded bg-gray-50 px-3 py-2 text-[12px]">
                     <div className="text-gray-400">
-                      kind={s.kind} · agent={s.agent}
-                      {s.node ? ` · node=${s.node}` : ""}
+                      {KIND_LABEL[s.kind] ?? s.kind}
                       {s.model ? ` · model=${s.model}` : ""}
+                      {s.node ? ` · 阶段=${s.node}` : ""}
+                      {` · agent=${s.agent}`}
                     </div>
                     {s.kind === "llm" && (
                       <div className="text-gray-600">
@@ -308,7 +484,7 @@ function Metric({
     <div className="rounded-md bg-gray-50 px-2 py-2">
       <div className="text-[11px] text-gray-400">{label}</div>
       <div
-        className={`text-[18px] font-medium ${danger ? "text-red-600" : "text-gray-900"}`}
+        className={`text-[16px] font-medium ${danger ? "text-red-600" : "text-gray-900"}`}
       >
         {value}
       </div>
