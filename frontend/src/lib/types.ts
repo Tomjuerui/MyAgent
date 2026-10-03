@@ -30,7 +30,18 @@ export interface SSEToolEndEvent {
 export interface SSEInterruptEvent {
   type: "interrupt";
   interrupt_type: "hitl_approval" | "order_info_supplement";
-  data: InterruptData;
+  // 后端 chat.py 发的是扁平 JSON：hitl_approval 的 tool_name/tool_args/order_data
+  // 与 order_info_supplement 的 missing_fields/message/extracted_data 均在顶层
+  tool_name?: string;
+  tool_args?: Record<string, unknown>;
+  order_data?: Record<string, unknown>;
+  missing_fields?: string[];
+  message?: string;
+  extracted_data?: Record<string, unknown>;
+  // LangGraph Interrupt.id：并发子 Agent 产生多个 pending interrupt 时，
+  // 恢复必须用 {interrupt_id: resume_value} 映射，见 useChat.ts resumeApproval
+  interrupt_id?: string;
+  data?: InterruptData;
 }
 
 export interface SSEDoneEvent {
@@ -208,7 +219,9 @@ export interface ChatRequest {
 
 export interface ResumeRequest {
   thread_id: string;
-  resume_data: Record<string, unknown>;
+  // 后端 src/agent/schema.py ResumeRequest 的字段名是 "resume"，
+  // 曾经误写成 resume_data 导致 422（审批点批准后流程静默卡死）
+  resume: Record<string, unknown>;
 }
 
 // ===== 功能条目 =====

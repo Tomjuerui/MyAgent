@@ -36,6 +36,9 @@ export function useChat() {
   const toolCallsRef = useRef<ToolCallInfo[]>([]);
   const currentToolIdRef = useRef<string>("");
   const pendingQueueRef = useRef<string[]>([]);
+  // 本轮暂停中累积的 LangGraph Interrupt.id（并发子 Agent 可能同时挂起多个 interrupt，
+  // 恢复时须拼成 {interrupt_id: {"decisions":[...]}} 映射）
+  const pendingInterruptIdsRef = useRef<string[]>([]);
 
   const resetAssistantState = useCallback(() => {
     assistantMsgRef.current = "";
@@ -111,7 +114,20 @@ export function useChat() {
 
         case "interrupt":
           setInterrupted(true);
-          setInterruptData(event.data);
+          // 后端 sse_event 发的是扁平 JSON（interrupt_type/tool_name/tool_args 在顶层，
+          // 无 data 包装），直接把事件本体存入即可；event.data 为旧协议残留字段
+          setInterruptData({
+            interrupt_type: event.interrupt_type ?? "",
+            tool_name: event.tool_name,
+            tool_args: event.tool_args,
+            order_data: event.order_data,
+            extracted_data: event.extracted_data,
+            missing_fields: event.missing_fields,
+            message: event.message,
+          });
+          if (event.interrupt_id && !pendingInterruptIdsRef.current.includes(event.interrupt_id)) {
+            pendingInterruptIdsRef.current.push(event.interrupt_id);
+          }
           break;
 
         case "thinking":
@@ -237,6 +253,7 @@ export function useChat() {
       setError(null);
       setInterrupted(false);
       setInterruptData(null);
+      pendingInterruptIdsRef.current = [];
       setThinking(false);
       setTodoItems([]);
       setTodoVisible(false);
@@ -295,11 +312,13 @@ export function useChat() {
       setInterrupted(false);
       setInterruptData(null);
       setStreaming(true);
+      // 本轮暂停的 interrupt id 已随本次恢复消费，清空以便下一轮暂停重新累积
+      pendingInterruptIdsRef.current = [];
       resetAssistantState();
 
       start((onChunk, signal) =>
         resumeChat(
-          { thread_id: threadId, resume_data: resumeData },
+          { thread_id: threadId, resume: resumeData },
           onChunk,
           signal
         )
@@ -308,12 +327,29 @@ export function useChat() {
     [threadId, start, resetAssistantState]
   );
 
+  // 审批/驳回：若本轮暂停挂起了多个 interrupt（并发子 Agent 场景），
+  // 拼成 LangGraph 要求的 {interrupt_id: {"decisions":[...]}} 映射；
+  // 否则退回单 interrupt 的 {"decisions":[...]} 形式（向后兼容旧后端）。
+  const resumeApproval = useCallback(
+    (decision: "approve" | "reject") => {
+      const ids = pendingInterruptIdsRef.current.filter((id) => id && id.length > 0);
+      const decisions = [{ type: decision }];
+      const resume: Record<string, unknown> =
+        ids.length > 0
+          ? Object.fromEntries(ids.map((id) => [id, { decisions }]))
+          : { decisions };
+      resumeWith(resume);
+    },
+    [resumeWith]
+  );
+
   const newChat = useCallback(() => {
     abort();
     setMessages([]);
     setStreaming(false);
     setInterrupted(false);
     setInterruptData(null);
+    pendingInterruptIdsRef.current = [];
     setError(null);
     setThreadId(uuidv4());
     setPendingQueue([]);
@@ -333,6 +369,7 @@ export function useChat() {
       setStreaming(false);
       setInterrupted(false);
       setInterruptData(null);
+      pendingInterruptIdsRef.current = [];
       setError(null);
       resetAssistantState();
       setTraceSpans([]);
@@ -398,6 +435,7 @@ export function useChat() {
     selectTraceRun,
     sendMessage,
     resumeWith,
+    resumeApproval,
     newChat,
     loadThread,
     abort,

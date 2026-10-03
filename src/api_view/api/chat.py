@@ -196,11 +196,15 @@ async def stream_chat_response(
                                 else {}
                             )
                             args = first.get("args") if isinstance(first.get("args"), dict) else {}
+                            # 并发子 Agent（多个 task 调用）会在同一 super-step 产生多个 pending
+                            # interrupt，LangGraph 要求用 {interrupt_id: resume_value} 映射恢复，
+                            # 因此把 Interrupt.id 透传给前端，由前端拼 resume map（见 useChat.ts）。
                             yield sse_event("interrupt", {
                                 "interrupt_type": "hitl_approval",
                                 "tool_name": first.get("name", ""),
                                 "tool_args": args,
                                 "order_data": args,
+                                "interrupt_id": getattr(interrupt_item, "id", ""),
                             })
 
                         # 保存当前累积的消息

@@ -63,11 +63,11 @@ export default function Home() {
   );
 
   const handleApprove = useCallback(() => {
-    chat.resumeWith({ decisions: [{ type: "approve" }] });
+    chat.resumeApproval("approve");
   }, [chat]);
 
   const handleReject = useCallback(() => {
-    chat.resumeWith({ decisions: [{ type: "reject" }] });
+    chat.resumeApproval("reject");
   }, [chat]);
 
   return (

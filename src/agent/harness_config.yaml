@@ -36,6 +36,7 @@ rubrics:
     1. 完整回答用户问题，未遗漏关键信息
     2. 所有数据均来自真实工具调用（mcp_browser_*），未编造
     3. 输出 Markdown，列表数据用表格
+    4. 若目标域名被安全闸门拦截（domain_not_allowed / blocked_target 等错误码），如实向用户说明被拒原因与允许访问的域名范围即视为完成，不得反复重试或编造数据
 
   release_tracking: |
     1. 报告含至少 2 条可点击的来源 URL（http/https），且 URL 归属白名单域名
