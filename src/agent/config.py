@@ -3,6 +3,7 @@
 LLM、Store、Checkpointer、沙箱连接参数
 """
 import os
+from urllib.parse import urlsplit
 from langchain_openai import ChatOpenAI
 from .env_utils import get_env, get_env_int
 
@@ -47,6 +48,14 @@ MCP_SSE_URL = f"{MCP_SERVER_URL}/sse"
 # Docker 内走服务名；本地开发指向 localhost
 WEBINTEL_MCP_URL = get_env("WEBINTEL_MCP_URL", "http://localhost:9002/mcp")
 
+# 与 webintel-mcp 同源的白名单（供「域名感知审批」：白名单内自动放行，白名单外弹卡）。
+# 必须与 docker-compose.yml 里 webintel-mcp 的 CRAWL_ALLOW_DOMAINS 保持一致，
+# 否则会出现「前端不弹卡但 MCP 拦」或「前端弹卡但 MCP 放行」的不一致。
+CRAWL_ALLOW_DOMAINS = get_env(
+    "CRAWL_ALLOW_DOMAINS", "github.com,news.ycombinator.com,arxiv.org"
+)
+_CRAWL_ALLOW_SET = {d.strip().lower() for d in CRAWL_ALLOW_DOMAINS.split(",") if d.strip()}
+
 # ============ 沙箱配置 ============
 SANDBOX_IMAGE = get_env("SANDBOX_IMAGE", "python:3.11-slim")#Docker 镜像名称，具体是 Python 3.11 的 slim（精简）版本
 SANDBOX_WORK_DIR = "/workspace"
@@ -65,9 +74,23 @@ SUMMARIZATION_THRESHOLD = 0.85  # 85% 上下文窗口时触发摘要
 # ============ 中断配置 ============
 # 兜底层：白名单外域名时 WebIntel-MCP 会返回结构化 domain_not_allowed 错误，
 # 子 Agent YAML 的 interrupt_on 是主拦截路径，这里是全局兜底（含文档生成）。
+# mcp_browser_navigate 采用「域名感知」：白名单内自动放行（不弹卡），
+# 白名单外才中断审批——真正的域名拦截仍在 webintel 闸门层兜底。
+def _navigate_needs_approval(req) -> bool:
+    """when 谓词：URL 域名不在白名单时返回 True（弹卡），否则自动放行。"""
+    tool_call = getattr(req, "tool_call", None) or {}
+    args = tool_call.get("args") if isinstance(tool_call, dict) else {}
+    url = (args or {}).get("url", "")
+    host = (urlsplit(url).hostname or "").lower()
+    return host not in _CRAWL_ALLOW_SET
+
+
 INTERRUPT_ON_TOOLS = {
     "order_create": {"allowed_decisions": ["approve", "reject"]},
     "order_update": {"allowed_decisions": ["approve", "reject"]},
-    "mcp_browser_navigate": {"allowed_decisions": ["approve", "reject"]},
+    "mcp_browser_navigate": {
+        "allowed_decisions": ["approve", "reject"],
+        "when": _navigate_needs_approval,
+    },
     "generate_document": {"allowed_decisions": ["approve", "reject"]},
 }

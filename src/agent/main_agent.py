@@ -20,7 +20,7 @@ from .backends.custom_opensandbox import DockerSandboxBackend
 
 from .config import (
     get_llm, MONGODB_URI, MONGODB_DB_NAME,
-    SKILLS_STORE_NAMESPACE, INTERRUPT_ON_TOOLS,
+    SKILLS_STORE_NAMESPACE, INTERRUPT_ON_TOOLS, _navigate_needs_approval,
     MAX_MODEL_CALLS, MAX_TOOL_CALLS,
 )
 from .schema import ProcurementContext
@@ -288,6 +288,12 @@ def create_main_agent(
     from .subagents.loader import load_subagent_configs, resolve_subagent_tools, get_delegation_context_prompt
     subagent_configs = load_subagent_configs()
     subagents = resolve_subagent_tools(subagent_configs, all_tools)
+    # 域名感知审批：白名单内域名自动放行（不弹卡），白名单外才中断。
+    # 与全局 INTERRUPT_ON_TOOLS 的 when 保持一致（子 Agent 自己的 interrupt_on 会覆盖全局）。
+    for _spec in subagents:
+        _io = (_spec or {}).get("interrupt_on")
+        if isinstance(_io, dict) and isinstance(_io.get("mcp_browser_navigate"), dict):
+            _io["mcp_browser_navigate"]["when"] = _navigate_needs_approval
     # 生成委派上下文协议（注入主 Agent 提示词）
     delegation_prompt = get_delegation_context_prompt(subagent_configs)
 
