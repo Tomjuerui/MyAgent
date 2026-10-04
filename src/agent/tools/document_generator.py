@@ -238,7 +238,7 @@ def _write_to_sandbox_or_local(filename: str, content: str, title: str, format_n
     file_path = LOCAL_DOWNLOAD_DIR / filename
     file_path.write_text(content, encoding="utf-8")
     file_size = file_path.stat().st_size
-    download_url = f"http://localhost:8000/api/download/{file_path.name}"
+    download_url = f"/api/download/{file_path.name}"
 
     agent_logger.info(f"Document generated locally: {file_path.name} ({file_size} bytes)")
     return (

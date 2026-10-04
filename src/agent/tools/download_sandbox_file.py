@@ -69,6 +69,8 @@ def download_sandbox_file(remote_path: str, filename: str = "") -> str:
 
     if not filename:
         filename = Path(remote_path).name
+    # filename 由模型提供，取 basename 防止写到下载目录之外
+    filename = Path(filename).name or "download.bin"
 
     # === 方式1：从 Docker 沙箱下载 ===
     container, docker_client = _get_docker_container()
@@ -112,7 +114,7 @@ def download_sandbox_file(remote_path: str, filename: str = "") -> str:
 
             docker_client.close()
 
-            download_url = f"http://localhost:8000/api/download/{filename}"
+            download_url = f"/api/download/{filename}"
             agent_logger.info(
                 f"File downloaded from sandbox: {remote_path} -> {target} ({len(content)} bytes)"
             )
@@ -140,7 +142,7 @@ def download_sandbox_file(remote_path: str, filename: str = "") -> str:
         import shutil
         shutil.copy2(source, target)
 
-        download_url = f"http://localhost:8000/api/download/{filename}"
+        download_url = f"/api/download/{filename}"
         agent_logger.info(f"File downloaded (local fallback): {source} -> {target}")
         return (
             f"✅ 文件已下载!\n"
