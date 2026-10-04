@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 
 from .api.chat import router as chat_router
 from .api.history import router as history_router
+from .api.profile import router as profile_router
 from .web_config import close_mongo_client
 from ..agent.log_utils import web_logger
 
@@ -49,6 +50,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(chat_router)
 app.include_router(history_router)
+app.include_router(profile_router)
 
 # 文件下载目录（图表等生成文件）
 DOWNLOAD_DIR = Path(__file__).resolve().parent.parent / "download"
