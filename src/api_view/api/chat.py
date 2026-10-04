@@ -10,6 +10,7 @@
 """
 import json
 import uuid
+import asyncio
 from typing import AsyncGenerator, Optional
 from datetime import datetime
 
@@ -20,6 +21,7 @@ from langgraph.types import Command
 from ..agent_loader import agent_loader
 from ...agent.schema import ChatRequest, ResumeRequest
 from ...agent.log_utils import web_logger
+from ...agent.profile import build_injection_block, extract_and_update_profile
 from ...agent.trace import TraceCollector
 
 # Trace 是可观测旁路：handler 不可用时降级为"不采集"，绝不影响对话本身
@@ -105,13 +107,21 @@ async def stream_chat_response(
         current_input = Command(resume=resume_data)
     else:
         display_messages = await agent_loader.get_display_messages(thread_id)
+        # 仅新会话首条消息注入画像快照：既满足「下一会话生效」，也避免每轮重复注入
+        is_new_thread = len(display_messages) == 0
         display_messages.append({
             "id": str(uuid.uuid4()),
             "role": "user",
             "content": message,
             "timestamp": datetime.now().isoformat(),
         })
-        current_input = {"messages": [{"role": "user", "content": message}]}
+        if is_new_thread:
+            profile_block = build_injection_block(user_id)
+            current_input = {"messages": [
+                {"role": "user", "content": profile_block + message}
+            ]}
+        else:
+            current_input = {"messages": [{"role": "user", "content": message}]}
 
     # 当前助手消息累积缓冲
     assistant_content = ""
@@ -385,6 +395,7 @@ async def stream_chat_response(
         async for evt in flush_trace(interrupted=False):
             yield evt
         yield sse_event("done", {"thread_id": thread_id, "interrupted": False})
+        _schedule_profile_extraction(user_id, display_messages)
 
     except Exception as e:
         web_logger.error(f"Stream error for thread {thread_id}: {e}", exc_info=True)
@@ -404,6 +415,17 @@ async def stream_chat_response(
             pass
         yield sse_event("error", {"message": f"服务内部错误: {str(e)[:200]}"})
         yield sse_event("done", {"thread_id": thread_id, "interrupted": False})
+
+
+def _schedule_profile_extraction(user_id: str, display_messages: list):
+    """流正常结束后 fire-and-forget 提炼画像（≥2 轮用户消息才触发，失败静默）。"""
+    user_count = sum(1 for m in display_messages if m.get("role") == "user")
+    if user_count < 2:
+        return
+    try:
+        asyncio.create_task(extract_and_update_profile(user_id, display_messages))
+    except Exception as e:
+        web_logger.warning(f"Profile extraction schedule failed: {e}")
 
 
 @router.post("/stream")
