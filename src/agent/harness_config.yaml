@@ -52,6 +52,7 @@ rubrics:
     1. 对比结论每条都能在 comparison_table 中找到数据支撑
     2. 明确标注数据采集时间点（技术情报有时效性）
     3. 未将不同来源的版本号混用比较
+    4. 已调用 generate_document 生成研报文件，且最终回答包含 /api/download/ 可点击下载链接
 
 # 可观测性配置
 observability:

@@ -73,7 +73,8 @@ SUMMARIZATION_THRESHOLD = 0.85  # 85% 上下文窗口时触发摘要
 
 # ============ 中断配置 ============
 # 兜底层：白名单外域名时 WebIntel-MCP 会返回结构化 domain_not_allowed 错误，
-# 子 Agent YAML 的 interrupt_on 是主拦截路径，这里是全局兜底（含文档生成）。
+# 子 Agent YAML 的 interrupt_on 是主拦截路径，这里是全局兜底。
+# 注意：generate_document 已移出审批清单——研报/文档是对话任务的自然交付物，写文件不弹卡。
 # mcp_browser_navigate 采用「域名感知」：白名单内自动放行（不弹卡），
 # 白名单外才中断审批——真正的域名拦截仍在 webintel 闸门层兜底。
 def _navigate_needs_approval(req) -> bool:
@@ -92,5 +93,4 @@ INTERRUPT_ON_TOOLS = {
         "allowed_decisions": ["approve", "reject"],
         "when": _navigate_needs_approval,
     },
-    "generate_document": {"allowed_decisions": ["approve", "reject"]},
 }

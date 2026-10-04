@@ -220,16 +220,34 @@ def _write_to_sandbox_or_local(filename: str, content: str, title: str, format_n
             file_size = len(content.encode("utf-8"))
 
             agent_logger.info(f"Document generated in sandbox: {sandbox_path} ({file_size} bytes)")
-            return (
-                f"✅ 文档已在沙箱中生成!\n"
-                f"标题: {title}\n"
-                f"格式: {format_name}\n"
-                f"文件大小: {file_size / 1024:.1f} KB\n"
-                f"沙箱路径: {sandbox_path}\n"
-                f"\n"
-                f"💡 如需下载到本地，请使用 download_sandbox_file 工具，"
-                f"传入沙箱路径: {sandbox_path}"
-            )
+
+            # 自交付：沙箱写入成功后，同步一份到宿主机 download 目录并直接返回下载链接。
+            # 否则链接是否可见取决于模型会不会再调 download_sandbox_file，实际经常漏掉
+            # （与 chart_generator.py 的自交付模式保持一致）。
+            download_url = ""
+            try:
+                LOCAL_DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+                safe_name = Path(filename).name or f"{title}.{format_name}"
+                (LOCAL_DOWNLOAD_DIR / safe_name).write_text(content, encoding="utf-8")
+                download_url = f"/api/download/{safe_name}"
+            except Exception as e:
+                agent_logger.warning(f"Document local delivery failed (non-fatal): {e}")
+
+            lines = [
+                f"✅ 文档已在沙箱中生成!",
+                f"标题: {title}",
+                f"格式: {format_name}",
+                f"文件大小: {file_size / 1024:.1f} KB",
+                f"沙箱路径: {sandbox_path}",
+            ]
+            if download_url:
+                lines.append(f"下载链接: {download_url}")
+            else:
+                lines.append(
+                    f"💡 如需下载到本地，请使用 download_sandbox_file 工具，"
+                    f"传入沙箱路径: {sandbox_path}"
+                )
+            return "\n".join(lines)
         except Exception as e:
             agent_logger.warning(f"Sandbox write failed ({e}), falling back to local")
 

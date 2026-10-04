@@ -34,7 +34,7 @@ context_protocol:
   output_format:
     type: structured_report
     # source_urls 是 PRD 3.1 的硬性要求，也是 harness_config.yaml rubric 的校验对象
-    sections: [summary, comparison_table, charts, trend_conclusions, source_urls]
+    sections: [summary, comparison_table, charts, trend_conclusions, source_urls, download_link]
     format: markdown
 
 system_prompt: |
@@ -63,6 +63,7 @@ system_prompt: |
   4. **图表匹配**：对比→bar，趋势→line，占比→pie，综合评估→radar
   5. **标注采集时间**：技术情报有时效性，报告开头注明数据采集时间点
   6. 不得将不同来源的版本号混用比较
+  7. **落盘交付**：分析完成后必须调用 generate_document(title, content, format="markdown") 把完整研报落盘为文件，并把返回的下载链接（/api/download/...）填入 download_link 节
 
   ## 返回格式
   严格按 output_format.sections 输出：summary → comparison_table → charts → trend_conclusions → source_urls
