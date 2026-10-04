@@ -18,7 +18,12 @@ phases:
 # 评审器配置（由 RubricMiddleware 消费）
 review:
   max_iterations: 3          # 单次 rubric 最多评审迭代次数
-  model: null                # 使用主 LLM；可覆盖为 provider:model
+  # grader 独立模型（网关上的模型名）。留空/null 用主 LLM。
+  # grader 是 create_agent + 结构化输出，用主模型（deepseek-v4.1-flash 推理型）
+  # 单次评审要 20-40s 长推理才出判定；换 kimi-k2.6 后实测 ~4-7s、单次调用出判定。
+  # 注意：minimax-m3 更快但会把 JSON 写在正文里而不走结构化输出工具，
+  # 导致 grader 内部空转数十轮（实测 55 轮 / 210s），勿用。
+  model: kimi-k2.6
 
 # 任务类型识别关键词（用于自动选择 rubric）
 task_types:

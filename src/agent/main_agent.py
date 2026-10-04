@@ -315,10 +315,18 @@ def create_main_agent(
     # Harness 阶段状态机 + 评审器（真 Harness 架构核心）
     from .harness import HarnessPhaseMiddleware, load_harness_config
 
-    # 读取 Harness DSL 配置中的评审迭代上限
+    # 读取 Harness DSL 配置中的评审迭代上限与评审模型
     _harness_config = load_harness_config()
     _review_cfg = _harness_config.get("review", {}) if isinstance(_harness_config, dict) else {}
     _review_max_iterations = _review_cfg.get("max_iterations", 3)
+    # 评审器独立模型：grader 是完整 create_agent + 结构化输出，用主模型（推理型）
+    # 单次评审要 20-40s 长推理才开始出判定。配置 review.model 换快模型可显著省时；
+    # 未配置（None）时退回主 llm，行为与改配置前一致。
+    _review_model_name = _review_cfg.get("model")
+    _review_llm = llm
+    if _review_model_name:
+        _review_llm = get_llm(model=_review_model_name)
+        agent_logger.info(f"Review grader uses separate model: {_review_model_name}")
 
     # 注意：create_deep_agent 内部已自动添加：
     # - SummarizationMiddleware（自动摘要 + compact_conversation 工具）
@@ -338,7 +346,7 @@ def create_main_agent(
         # --- Harness 评审器（RubricMiddleware）---
         # 收到 rubric 后，grader 子Agent 结构化产出 satisfied/needs_revision/failed，
         # needs_revision 时自动打回模型重做，形成真实 Review 回路（非 prompt 软约束）
-        RubricMiddleware(model=llm, max_iterations=_review_max_iterations),
+        RubricMiddleware(model=_review_llm, max_iterations=_review_max_iterations),
         # --- 框架内置中间件（调用限制）---
         ModelCallLimitMiddleware(run_limit=MAX_MODEL_CALLS),          # 模型调用上限
         ToolCallLimitMiddleware(run_limit=MAX_TOOL_CALLS),            # 工具调用上限

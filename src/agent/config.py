@@ -53,10 +53,15 @@ class ReasoningChatOpenAI(ChatOpenAI):
         return generation_chunk
 
 
-def get_llm() -> ChatOpenAI:
-    """获取 LLM 实例（OpenAI 兼容接口，当前指向本地反代网关）"""
+def get_llm(model: str | None = None) -> ChatOpenAI:
+    """获取 LLM 实例（OpenAI 兼容接口，当前指向本地反代网关）。
+
+    Args:
+        model: 覆盖默认模型名（如评审器换快模型 kimi-k2.6）；
+            为 None 时用 LLM_MODEL。
+    """
     return ReasoningChatOpenAI(
-        model=LLM_MODEL,
+        model=model or LLM_MODEL,
         base_url=LLM_BASE_URL,
         api_key=LLM_API_KEY or "EMPTY",
         temperature=LLM_TEMPERATURE,
