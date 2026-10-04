@@ -4,7 +4,7 @@
 
 核心设计（Harness 思想）：
 - 所有图表必须在 Docker 沙箱内生成（/workspace/charts/）
-- 用户需要下载时，通过 download_sandbox_file 工具从沙箱提取到本地
+- 生成后由本工具提取到宿主机 src/download/，经 /api/download 暴露给前端
 - 沙箱不可用时返回错误，不降级到宿主机执行
 """
 import json
@@ -14,6 +14,9 @@ from langchain_core.tools import tool
 
 from ..log_utils import agent_logger
 from ..backends.sandbox_holder import get_sandbox
+
+# 生成物落盘目录，与 src/api_view/web_main.py 的 /api/download/{filename} 对应
+DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "download"
 
 CHART_TYPES = [
     "bar", "horizontal_bar", "stacked_bar", "grouped_bar",
@@ -216,8 +219,8 @@ def generate_chart(
 ) -> str:
     """在沙箱中生成数据可视化图表（支持26种类型）。
 
-    图表在 Docker 沙箱中安全生成，不会写入宿主机文件系统。
-    如需下载到本地，请调用 download_sandbox_file 工具。
+    图表在 Docker 沙箱中安全生成，生成后自动提取到宿主机下载目录，
+    返回可直接在前端 Markdown 中引用的图片链接。
 
     Args:
         chart_type: 图表类型。支持: bar(柱状图), horizontal_bar(横向柱状图),
@@ -296,21 +299,42 @@ def generate_chart(
         if result.exit_code == 0 and "OK:" in result.output:
             # 验证文件存在
             if sandbox.file_exists(output_path):
-                file_size = len(sandbox.read_file_bytes(output_path))
+                content = sandbox.read_file_bytes(output_path)
+                file_size = len(content)
                 agent_logger.info(
                     f"Chart generated in sandbox: {output_path} ({file_size} bytes)"
                 )
-                return (
-                    f"✅ 图表已生成!\n"
-                    f"标题: {title}\n"
-                    f"类型: {chart_type}\n"
-                    f"数据点: {len(data_list)}\n"
-                    f"文件大小: {file_size / 1024:.1f} KB\n"
-                    f"沙箱路径: {output_path}\n"
-                    f"\n"
-                    f"💡 如需下载到本地，请使用 download_sandbox_file 工具，"
-                    f"传入沙箱路径: {output_path}"
-                )
+
+                # 生成后立刻提取到宿主机下载目录：之前只把沙箱路径当文本返回，
+                # 是否可见取决于模型会不会再调一次 download_sandbox_file，实际经常漏掉。
+                image_url = ""
+                try:
+                    DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+                    (DOWNLOAD_DIR / output_name).write_bytes(content)
+                    # 相对路径：经前端 /api 重写打到后端，不写死 host/port
+                    image_url = f"/api/download/{output_name}"
+                except Exception as e:
+                    agent_logger.warning(f"Chart extract to host failed: {e}")
+
+                lines = [
+                    "✅ 图表已生成!",
+                    f"标题: {title}",
+                    f"类型: {chart_type}",
+                    f"数据点: {len(data_list)}",
+                    f"文件大小: {file_size / 1024:.1f} KB",
+                    f"沙箱路径: {output_path}",
+                ]
+                if image_url:
+                    lines += [
+                        f"图片链接: {image_url}",
+                        f"在回复中用 Markdown 引用该图（不要另存或改写链接）: ![{title}]({image_url})",
+                    ]
+                else:
+                    lines.append(
+                        f"💡 提取到宿主机失败，如需下载请使用 download_sandbox_file 工具，"
+                        f"传入沙箱路径: {output_path}"
+                    )
+                return "\n".join(lines)
             else:
                 return f"图表生成后文件未找到: {output_path}"
         else:
