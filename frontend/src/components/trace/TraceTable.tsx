@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { TraceSpan } from "@/lib/types";
 import {
   badgeClass,
@@ -73,7 +74,11 @@ export default function TraceTable({
                     aria-label={collapsed.has(s.span_id) ? "展开" : "折叠"}
                     className="w-3 shrink-0 text-[10px] text-ink-300 hover:text-ink-700"
                   >
-                    {collapsed.has(s.span_id) ? "▸" : "▾"}
+                    {collapsed.has(s.span_id) ? (
+                      <ChevronRight size={11} />
+                    ) : (
+                      <ChevronDown size={11} />
+                    )}
                   </button>
                 ) : (
                   <span className="w-3 shrink-0" />
