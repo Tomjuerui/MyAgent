@@ -50,6 +50,9 @@ services:
     # 单独用 `docker compose -f docker-compose.yml build frontend` 构建）
     image: myagent-frontend:dev
     command: npm run dev -- -H 0.0.0.0 -p 3000
+    environment:
+      # Windows 宿主文件事件不透传进容器，watchpack 收不到变更 → 改为轮询，改前端代码即时热更
+      WATCHPACK_POLLING: "true"
     volumes:
       - ./frontend:/app
       # 保护容器内 node_modules / .next，避免宿主 Windows 版本覆盖 Linux 原生模块
