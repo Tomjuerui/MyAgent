@@ -6,7 +6,7 @@
 
 ## 项目简介
 
-DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察**的 AI Agent。它接收自然语言指令，自主规划调研路径，调度受控浏览器 MCP 抓取 GitHub Releases、HackerNews 热帖、arXiv 论文摘要等公开页面，执行交叉比对分析，并最终自动生成带趋势图表的可追溯研报：
+DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察**的 AI Agent。它接收自然语言指令，自主规划调研路径，通过**结构化 API 优先 + 浏览器兜底**的采集通道获取 GitHub Releases、HackerNews 热帖、arXiv 论文摘要等公开数据，执行交叉比对分析，并最终自动生成带趋势图表的可追溯研报：
 
 - 开源框架发版追踪（LangGraph / CrewAI / AutoGen 等）
 - 社区舆情摘要（HackerNews 热帖量化）
@@ -60,7 +60,7 @@ DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察*
 │  │ :8788    │ │ (Harness/Rubric│ │ crawler      │ │ analyst   │  │
 │  │          │ │ /HITL/Memory…)│ │ tech-analyst │ │ order     │  │
 │  └──────────┘ └───────────────┘ └──────────────┘ └───────────┘  │
-│  Tools: WebIntel MCP(3) + ERP MCP(23) + 自定义(图表/文档/下载…)   │
+│  Tools: 结构化API(3) + WebIntel MCP(3) + ERP MCP(23) + 自定义(图表/文档/下载…)   │
 └───────────┬───────────────────────────────────┬──────────────────┘
             │ streamable-http                    │ MCP (SSE)
 ┌───────────▼────────────────────┐  ┌───────────▼──────────────────┐
@@ -85,8 +85,15 @@ DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察*
 
 ## 核心功能
 
-### 1. 自研 Playwright-MCP 网页采集（安全闸门）
-独立 FastMCP 服务（`D:\桌面\Brower_Use\webintel-mcp`，只读依赖），提供 3 个标准化工具：
+### 1. 采集双通道：结构化 API 优先 + 自研 Playwright-MCP 兜底
+
+**API 优先通道**（`src/agent/tools/webintel_api.py`）：三个白名单域（github / HN / arXiv）都有官方结构化 API，URL 由代码构造、httpx 直连，秒级返回，无需浏览器与域名审批：
+
+- `fetch_github_releases`：GitHub Releases 列表（版本号/日期/变更/URL）
+- `fetch_hackernews_top`：HN 热帖（标题/热度/评论数/时间）
+- `fetch_arxiv_papers`：arXiv 论文摘要（标题/摘要/日期/链接）
+
+**浏览器兜底**（自研 Playwright-MCP，独立 FastMCP 服务 `D:\桌面\Brower_Use\webintel-mcp`，只读依赖）。MVP 白名单三域默认全走 API，浏览器仅在以下场景使用：API 失败/超时的重试路径、白名单外的 JS 渲染页面（需 HITL 审批并扩白名单）、截图取证。同时它承载「自研 MCP + 五重安全闸门」的工程展示价值：
 
 - `mcp_browser_navigate`：无头 Chrome 导航 + Readability 提纯 Markdown
 - `mcp_extract_table`：表格 → JSON/CSV
@@ -107,7 +114,7 @@ DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察*
 ### 4. 子 Agent 委派（YAML 声明式）
 | 子 Agent | 域 | 职责 | 工具 |
 |---|---|---|---|
-| ecosystem-crawler | 技术情报 | 网页采集提纯，不回传原始 DOM | mcp_browser_* 3 工具 |
+| ecosystem-crawler | 技术情报 | API 优先采集 + 提纯，不回传原始 DOM | search_github_repos + fetch_* 3 工具 + mcp_browser_* 3 工具（兜底） |
 | tech-analyst | 技术情报 | 交叉比对分析 + 图表 + 研报 | generate_chart / generate_document / generate_table_report |
 | procurement-analyst | 采购（第二域） | 采购数据分析 + 图表 | ERP MCP 工具 |
 | procurement-order | 采购（第二域） | 订单 CRUD + 审批 | ERP MCP 工具 |
@@ -152,7 +159,7 @@ docker compose down -v    # 停止并清空数据
 DEMO_MODE=true docker compose up -d
 ```
 
-`DEMO_MODE=true` 同时驱动两件事：webintel 闸门把所有采集请求的 host 改写为 `mock-web`（nginx 假页面，:8080）；backend 注入「当前为离线演示」系统提示词（否则模型识别出 mock 页面标记会拒绝产出）。三张指令卡（发版追踪 / 社区舆情 / 技术路线研报）可全离线跑通。
+`DEMO_MODE=true` 下，结构化 API 工具（`fetch_*`）直接返回内置 mock 数据（与 mock-web 假数据对齐），不发起任何网络请求；webintel 闸门对浏览器兜底请求改写 host 到 `mock-web`（nginx 假页面，:8080）。backend 同时注入「当前为离线演示」系统提示词。三张指令卡（发版追踪 / 社区舆情 / 技术路线研报）可全离线跑通。
 
 **真实模式（默认，`.env` 中 `DEMO_MODE=false`）**：白名单域名 `github.com, news.ycombinator.com, arxiv.org` 走真实外网；本机实测 arxiv.org 最快（<1s），github.com 较慢（~12s），news.ycombinator.com 可能超时。
 
@@ -224,7 +231,7 @@ MyAgent/
 │   │   ├── harness_config.yaml        # 阶段/评审标准 DSL
 │   │   ├── backends/                  # Docker 沙箱后端（7 层防护）
 │   │   ├── middlewares/               # 自定义中间件
-│   │   ├── tools/                     # 自定义工具（chart/document/download…）
+│   │   ├── tools/                     # 自定义工具（API 采集/chart/document/download…）
 │   │   ├── trace/                     # 执行链路 Trace 采集/落库
 │   │   ├── subagents/                 # 子 Agent（configs/*.yaml 声明式）
 │   │   └── memory/                    # 系统提示词
@@ -262,8 +269,8 @@ MyAgent/
 
 ## 项目亮点
 
-1. **自研 Playwright-MCP + 五重安全闸门**：scheme → DNS → SSRF/私有 IP → 域名白名单 → 限速，杜绝 SSRF 与越权抓取。
-2. **主子 Agent 架构防上下文污染**：复杂 DOM 由 ecosystem-crawler 消化提纯，主 Agent 只见纯净 Markdown/JSON。
+1. **采集双通道**：结构化 API 优先（三域 httpx 直连，秒级返回）+ 自研 Playwright-MCP 兜底（五重安全闸门：scheme → DNS → SSRF/私有 IP → 域名白名单 → 限速）。
+2. **主子 Agent 架构防上下文污染**：原始数据由 ecosystem-crawler 消化提纯，主 Agent 只见纯净 Markdown/JSON。
 3. **Harness 状态机 + Rubric 硬校验**：拒绝大模型幻觉，来源 URL 与数据真实性不达标自动打回重做。
 4. **HITL 双层闸门**：UI 审批卡 + MCP 域名拦截，双重合规。
 5. **全链路可视化 Trace**：`agent_traces` 落库，精确追溯每次 MCP 调用耗时、DOM 提取字符数、token 归因。

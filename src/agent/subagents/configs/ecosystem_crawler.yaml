@@ -5,7 +5,13 @@ description: >
 
 # 工具名与 webintel-mcp 实际注册名一致（loader.py:218 为子串匹配，
 # 故不可写成 browser_extract_table —— 该串在 mcp_extract_table 中不出现）。
+# API 优先：三域（github/hn/arxiv）走 fetch_* 结构化 API；浏览器仅兜底。
+# search_github_repos 用于「框架名 → owner/repo」的发现层。
 tools:
+  - search_github_repos
+  - fetch_github_releases
+  - fetch_hackernews_top
+  - fetch_arxiv_papers
   - mcp_browser_navigate
   - mcp_extract_table
   - mcp_take_screenshot
@@ -19,9 +25,12 @@ interrupt_on:
 
 context_protocol:
   input_context:
+    - field: target_repos
+      description: 待采集的仓库（owner/repo，如 langchain-ai/langgraph）；只给框架名时用 search_github_repos 先发现
+      required: false
     - field: target_urls
-      description: 待采集的 URL 列表
-      required: true
+      description: 待采集的非 API 页面 URL（可选，浏览器兜底用）
+      required: false
     - field: extract_goal
       description: 提取目标（如"仅 changelog 与版本表格"）
       required: true
@@ -39,13 +48,19 @@ system_prompt: |
   3. 遇到需要登录、验证码、Cloudflare 挑战的页面，直接放弃并在结果中标注 skip_reason，不得尝试绕过
   4. 单域名访问间隔不小于 1 秒
 
-  ## 流程
-  1. mcp_browser_navigate 拿到正文 Markdown
-  2. 若页面含版本/对比表格，追加 mcp_extract_table
-  3. 关键页面追加 mcp_take_screenshot
-  4. 按输出契约汇总
+  ## 流程（发现 → 获取，API 优先，浏览器兜底）
+  0. 只给框架名、未给精确 owner/repo 时，先用 search_github_repos(query) 发现候选仓库
+  1. GitHub Releases → fetch_github_releases(owner, repo)
+     HackerNews 热帖 → fetch_hackernews_top(stories_count, query)
+     arXiv 论文 → fetch_arxiv_papers(query)
+  2. fetch_* 返回 {"error": ...} 或目标是 API 未覆盖的页面（博客正文、官网）时，
+     回退 mcp_browser_navigate 拿正文 Markdown
+  3. 含版本/对比表格且 fetch_* 未覆盖时，追加 mcp_extract_table
+  4. 需要截图取证时，追加 mcp_take_screenshot
+  5. 按输出契约汇总，每条结论附 source_url
 
   ## 工具失败处理
+  - fetch_* 返回 {"error": ...} 时：说明 API 通道拿不到，改用 mcp_browser_navigate 兜底，不要反复重试同一 API
   - 返回 domain_not_allowed 时：说明该域名不在白名单，等待人工授权，不要反复重试
   - 返回 rate_limited 时：等待 retry_after_ms 后再试，或换域名
   - 返回 navigation_timeout 时：改用 wait_until=domcontentloaded 重试一次

@@ -124,7 +124,7 @@ services:
       WEBINTEL_MCP_URL: http://webintel-mcp:9002/mcp
       ERP_BASE_URL: http://mock-erp:8081
       # 与 webintel-mcp 同源：backend 的「域名感知审批」据此判断白名单（改动需与 webintel 一致）
-      CRAWL_ALLOW_DOMAINS: ${CRAWL_ALLOW_DOMAINS:-github.com,news.ycombinator.com,arxiv.org}
+      CRAWL_ALLOW_DOMAINS: ${CRAWL_ALLOW_DOMAINS:-github.com,api.github.com,news.ycombinator.com,arxiv.org}
       # 与 webintel-mcp 同一个开关：置 true 时 backend 会把「当前为离线演示」注入系统提示词，
       # 否则模型识别出 mock 页面的 Demo 标记后会拒绝产出
       DEMO_MODE: ${DEMO_MODE:-false}
@@ -153,7 +153,7 @@ services:
     container_name: myagent-webintel-mcp
     restart: unless-stopped
     environment:
-      CRAWL_ALLOW_DOMAINS: ${CRAWL_ALLOW_DOMAINS:-github.com,news.ycombinator.com,arxiv.org}
+      CRAWL_ALLOW_DOMAINS: ${CRAWL_ALLOW_DOMAINS:-github.com,api.github.com,news.ycombinator.com,arxiv.org}
       DEMO_MODE: ${DEMO_MODE:-false}
       WEBINTEL_ARTIFACTS_DIR: /artifacts
     volumes:

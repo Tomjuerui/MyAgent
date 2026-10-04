@@ -270,6 +270,10 @@ def create_main_agent(
     from .tools.chart_generator import generate_chart
     from .tools.web_search import web_search
     from .tools.web_fetch import web_fetch, install_skill
+    from .tools.webintel_api import (
+        fetch_github_releases, fetch_hackernews_top, fetch_arxiv_papers,
+        search_github_repos,
+    )
     from .tools.hitl_tools import request_order_info
     from .tools.download_sandbox_file import download_sandbox_file, list_sandbox_files
     from .tools.document_generator import generate_document, generate_table_report
@@ -277,7 +281,9 @@ def create_main_agent(
     mcp_tools = load_mcp_tools_sync()
     custom_tools = [generate_chart, web_search, web_fetch, install_skill, request_order_info,
                     download_sandbox_file, list_sandbox_files,
-                    generate_document, generate_table_report]
+                    generate_document, generate_table_report,
+                    fetch_github_releases, fetch_hackernews_top, fetch_arxiv_papers,
+                    search_github_repos]
     all_tools = mcp_tools + custom_tools
 
     agent_logger.info(

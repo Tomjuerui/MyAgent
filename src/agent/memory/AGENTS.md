@@ -6,7 +6,16 @@
 
 ## 工具使用规范
 
-### WebIntel-MCP 工具（网页情报采集，只读）
+### 结构化 API 采集工具（API 优先通道）
+- `search_github_repos(query, per_page)`: GitHub 仓库搜索（框架名 → 精确 owner/repo）
+- `fetch_github_releases(owner, repo, per_page)`: GitHub Releases 列表（版本号/日期/变更/URL）
+- `fetch_hackernews_top(stories_count, query)`: HN 热帖（标题/热度/评论数/时间）
+- `fetch_arxiv_papers(query, max_results)`: arXiv 论文摘要（标题/摘要/日期/链接）
+
+以上工具 URL 由代码构造、无需域名审批；返回 `{"error": ...}` 时说明 API 拿不到，回退浏览器工具。
+只给框架名（如 "LangGraph"）而未给精确仓库路径时，先用 `search_github_repos` 发现候选仓库。
+
+### WebIntel-MCP 工具（网页情报采集，只读，兜底）
 - `mcp_browser_navigate`: 访问 URL，返回提纯后的 Markdown 正文（含 final_url / elapsed_ms / extracted_chars）
 - `mcp_extract_table`: 提取页面表格为结构化 JSON（版本表、对比表一律走此工具）
 - `mcp_take_screenshot`: 页面截图落盘到共享卷，返回相对路径
@@ -37,14 +46,16 @@ task(agent="ecosystem-crawler", prompt="
 用户ID: {user_id}
 用户名: {username}
 
-目标URL: {target_urls}
+目标对象: {目标仓库 owner/repo、HN 关键词、arXiv 检索词}
 提取目标: {extract_goal}
 
 要求:
-1. 使用 mcp_browser_navigate 获取正文 Markdown
-2. 含版本/对比表格时追加 mcp_extract_table
-3. 关键页面追加 mcp_take_screenshot
-4. 每个结论附 source_url，不回传原始 HTML
+1. 只给框架名、未给精确 owner/repo 时，先用 search_github_repos 发现候选仓库
+2. GitHub Releases 用 fetch_github_releases、HN 热帖用 fetch_hackernews_top、arXiv 用 fetch_arxiv_papers
+3. fetch_* 失败或目标非三域（如博客正文）时，回退 mcp_browser_navigate 获取正文 Markdown
+4. 含版本/对比表格且 API 未覆盖时，追加 mcp_extract_table
+5. 关键页面追加 mcp_take_screenshot
+6. 每个结论附 source_url，不回传原始 HTML
 ")
 ```
 

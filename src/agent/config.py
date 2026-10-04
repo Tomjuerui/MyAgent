@@ -52,7 +52,7 @@ WEBINTEL_MCP_URL = get_env("WEBINTEL_MCP_URL", "http://localhost:9002/mcp")
 # 必须与 docker-compose.yml 里 webintel-mcp 的 CRAWL_ALLOW_DOMAINS 保持一致，
 # 否则会出现「前端不弹卡但 MCP 拦」或「前端弹卡但 MCP 放行」的不一致。
 CRAWL_ALLOW_DOMAINS = get_env(
-    "CRAWL_ALLOW_DOMAINS", "github.com,news.ycombinator.com,arxiv.org"
+    "CRAWL_ALLOW_DOMAINS", "github.com,api.github.com,news.ycombinator.com,arxiv.org"
 )
 _CRAWL_ALLOW_SET = {d.strip().lower() for d in CRAWL_ALLOW_DOMAINS.split(",") if d.strip()}
 
