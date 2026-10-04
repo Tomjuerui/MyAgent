@@ -6,6 +6,9 @@ Docker 沙箱后端
 import docker
 import base64
 import io
+import os
+import posixpath
+import shlex
 import tarfile
 import json
 from typing import Optional
@@ -14,6 +17,7 @@ from deepagents.backends.sandbox import (
     BaseSandbox, ExecuteResponse,
     FileDownloadResponse, FileUploadResponse,
 )
+from deepagents.backends.protocol import GlobResult, GrepResult
 from deepagents.backends import DEFAULT_EXECUTE_TIMEOUT
 from ..log_utils import sandbox_logger
 from ..config import SANDBOX_WORK_DIR
@@ -116,10 +120,19 @@ class CustomOpenSandbox(BaseSandbox):
                 exit_code=-1,
             )
 
+        timeout_s = timeout if timeout is not None else self._default_timeout
+
         try:
-            # 在工作目录下执行命令
+            # 用 GNU timeout 整条包住命令（-k 5：TERM 无效 5s 后再 KILL）。
+            # 关键：工具层的超时只会放弃等待，杀不掉容器内已经跑起来的进程；
+            # 不在这里兜底，像 glob/grep 这类卡死的命令会在容器里变成孤儿
+            # 进程永久空转 CPU（曾把 erp-sandbox 的 1 核跑满 1.5 小时）。
+            guarded = (
+                f"cd {shlex.quote(self._work_dir)} && "
+                f"timeout -k 5 {timeout_s} bash -c {shlex.quote(command)}"
+            )
             exec_result = self._container.exec_run(
-                cmd=["bash", "-c", f"cd {self._work_dir} && {command}"],
+                cmd=["bash", "-c", guarded],
                 demux=True,  # 分离 stdout/stderr
                 workdir=self._work_dir,
             )
@@ -139,6 +152,12 @@ class CustomOpenSandbox(BaseSandbox):
                     output_parts.append(stderr_text)
 
             output = "\n".join(output_parts) if output_parts else ""
+
+            # 124 = GNU timeout 到点杀掉；137 = 被 SIGKILL。给模型一个明确信号，
+            # 免得它把「被截断的空输出」误读成命令成功。
+            if exit_code in (124, 137):
+                note = f"[命令超时（>{timeout_s}s）已被终止]"
+                output = f"{output}\n{note}" if output else note
 
             # 截断过长输出
             truncated = False
@@ -223,9 +242,28 @@ class CustomOpenSandbox(BaseSandbox):
         content = content.replace(old_text, new_text, 1)
         return self.write_file(path, content)
 
+    def _clamp_search_root(self, path: str | None) -> str:
+        """把搜索根收敛到沙箱工作目录内。
+
+        deepagents 的 glob/agrep 在未传 path 时默认从 "/" 起搜
+        （backends/sandbox.py: BaseSandbox.aglob 里 `search_path = path or "/"`）。
+        容器内 /proc/1/root 是指向 / 的软链接，glob('**/...', recursive=True)
+        会沿该软链接无限递归（/proc/1/root/proc/1/root/...），永不返回并吃满 CPU。
+        这里把根强制夹到 work_dir 内（用 posixpath，因为路径是容器内 Linux 路径）。
+        """
+        work = posixpath.normpath(self._work_dir)
+        raw = (path or self._work_dir).strip()
+        if not raw.startswith("/"):
+            raw = f"{work}/{raw.lstrip('./')}"
+        root = posixpath.normpath(raw)
+        if root != work and not root.startswith(work + "/"):
+            return work
+        return root
+
     def glob(self, pattern: str, base_path: str = ".") -> list[str]:
         """文件模式匹配（支持递归）"""
-        resp = self.execute(f"find '{base_path}' -path '{pattern}' -type f 2>/dev/null | head -200")
+        root = self._clamp_search_root(base_path)
+        resp = self.execute(f"find '{root}' -path '{pattern}' -type f 2>/dev/null | head -200")
         if resp.exit_code != 0:
             return []
         return [line.strip() for line in resp.output.strip().split("\n") if line.strip()]
@@ -233,10 +271,32 @@ class CustomOpenSandbox(BaseSandbox):
     def grep(self, pattern: str, path: str = ".", recursive: bool = True) -> list[str]:
         """在文件中搜索文本模式"""
         flag = "-rn" if recursive else "-n"
-        resp = self.execute(f"grep {flag} '{pattern}' '{path}' 2>/dev/null | head -100")
+        root = self._clamp_search_root(path)
+        resp = self.execute(f"grep {flag} '{pattern}' '{root}' 2>/dev/null | head -100")
         if resp.exit_code != 0:
             return []
         return [line.strip() for line in resp.output.strip().split("\n") if line.strip()]
+
+    # ============================================================
+    # deepagents 异步文件工具的覆写 — 只为收敛搜索根
+    # ============================================================
+    # deepagents 的 filesystem 中间件走的是异步工具（async_glob/async_grep →
+    # backend.aglob/agrep），而基类 BaseSandbox 没有覆写这两个方法，
+    # 所以真正生效的是基类实现。这里补上覆写，把搜索根夹进 work_dir，
+    # 其余命令构造与结果解析仍复用基类（返回 GlobResult/GrepResult）。
+
+    async def aglob(self, pattern: str, path: str | None = None) -> GlobResult:
+        return await super().aglob(pattern, path=self._clamp_search_root(path))
+
+    async def agrep(
+        self,
+        pattern: str,
+        path: str | None = None,
+        glob: str | None = None,
+    ) -> GrepResult:
+        return await super().agrep(
+            pattern, path=self._clamp_search_root(path), glob=glob
+        )
 
     def mkdir(self, path: str) -> str:
         """创建目录（含父目录）"""
