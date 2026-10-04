@@ -49,6 +49,41 @@ function repairGluedTableHeaders(md: string): string {
   return changed ? lines.join("\n") : md;
 }
 
+// 围栏代码块开/关行（``` 或 ~~~）
+const FENCE_LINE = /^\s*(```|~~~)/;
+// ATX 标题漏空格，形如 '###一、' '####1.1'。首位排除空格/#/!：
+// 7 个及以上的 # 本来就不是标题，#!/bin/bash 是 shebang 不是标题。
+const ATX_MISSING_SPACE = /^(#{1,6})(?=[^\s#!])/;
+
+/**
+ * 修「ATX 标题漏空格」的坏 markdown：
+ *   '###一、当日新增（2026-10-04）'  →  '### 一、当日新增（2026-10-04）'
+ * CommonMark 要求 # 号后必须有空格/制表符或行尾，漏掉时整行按普通段落解析，
+ * 前端就表现为「标题没渲染，字号和正文一样」。生成端时好时坏（带空格的那次正常），
+ * 历史消息已按原样存进库，所以在渲染前归一化，而不是等重新生成。
+ * 只认顶格的 #：缩进 4 格属于代码块，1~3 格缩进的标题本项目输出里不存在。
+ */
+function repairAtxHeadings(md: string): string {
+  if (!md.includes("#")) return md;
+  const lines = md.split("\n");
+  let changed = false;
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (FENCE_LINE.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    // 代码块内的行首 # 是 shebang / 注释，补空格会把它变成标题
+    if (inFence) continue;
+    const match = ATX_MISSING_SPACE.exec(line);
+    if (!match) continue;
+    lines[i] = `${match[1]} ${line.slice(match[1].length)}`;
+    changed = true;
+  }
+  return changed ? lines.join("\n") : md;
+}
+
 function extractText(node: ReactNode): string {
   if (node === null || node === undefined || typeof node === "boolean") return "";
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -195,7 +230,7 @@ function MarkdownRenderer({ content }: { content: string }) {
       rehypePlugins={rehypePlugins}
       components={components}
     >
-      {repairGluedTableHeaders(content)}
+      {repairAtxHeadings(repairGluedTableHeaders(content))}
     </ReactMarkdown>
   );
 }

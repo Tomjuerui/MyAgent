@@ -14,6 +14,7 @@
 - 会议纪要 → Markdown / HTML
 """
 import os
+import re
 import json
 import csv
 import io
@@ -28,6 +29,41 @@ from ..backends.sandbox_holder import get_sandbox, has_sandbox
 SANDBOX_OUTPUT_DIR = "/workspace/output"
 # 本地回退目录
 LOCAL_DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "download"
+
+
+# 围栏代码块开/关行（``` 或 ~~~）
+_FENCE_LINE = re.compile(r"^\s*(```|~~~)")
+# ATX 标题漏空格，形如 '###一、' '####1.1'。首位排除空格/#/!：
+# 7 个及以上的 # 本来就不是标题，#!/bin/bash 是 shebang 不是标题。
+_ATX_MISSING_SPACE = re.compile(r"^(#{1,6})(?=[^\s#!])")
+
+
+def repair_atx_headings(md: str) -> str:
+    """修「ATX 标题漏空格」的坏 markdown：'###一、当日新增' → '### 一、当日新增'。
+
+    CommonMark 要求 # 号后必须有空格/制表符或行尾，漏掉时整行按普通段落解析 ——
+    在 VS Code / Typora / 前端 react-markdown 里都渲染不成标题，字号和正文一样。
+    生成端时好时坏（带空格的那次正常），所以在落盘前归一化，而不是靠提示词约束模型。
+    前端 frontend/src/components/chat/MarkdownRenderer.tsx 里的 repairAtxHeadings 是同一套规则。
+    """
+    if "#" not in md:
+        return md
+    lines = md.split("\n")
+    changed = False
+    in_fence = False
+    for i, line in enumerate(lines):
+        if _FENCE_LINE.match(line):
+            in_fence = not in_fence
+            continue
+        # 代码块内的行首 # 是 shebang / 注释，补空格会把它变成标题
+        if in_fence:
+            continue
+        match = _ATX_MISSING_SPACE.match(line)
+        if not match:
+            continue
+        lines[i] = f"{match.group(1)} {line[match.end(1):]}"
+        changed = True
+    return "\n".join(lines) if changed else md
 
 
 @tool
@@ -86,7 +122,7 @@ def _generate_markdown(title: str, content: str, filename: str) -> str:
     md_content = f"# {title}\n\n"
     md_content += f"*生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
     md_content += "---\n\n"
-    md_content += content
+    md_content += repair_atx_headings(content)
 
     return _write_to_sandbox_or_local(f"{filename}.md", md_content, title, "Markdown")
 
