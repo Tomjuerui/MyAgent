@@ -47,6 +47,19 @@ PHASE_LABELS = {
 }
 
 
+def _derive_title(message: str, display_messages: list) -> str:
+    """生成会话标题：优先当前提问，否则取首条用户消息（中断/恢复场景 message 为空）"""
+    src = (message or "").strip()
+    if not src:
+        for m in display_messages:
+            if m.get("role") == "user" and (m.get("content") or "").strip():
+                src = m["content"].strip()
+                break
+    if not src:
+        return "新对话"
+    return src[:20] + "..." if len(src) > 20 else src
+
+
 async def stream_chat_response(
     message: str,
     thread_id: str,
@@ -218,6 +231,10 @@ async def stream_chat_response(
                             })
                         await agent_loader.save_display_messages(thread_id, display_messages)
                         await agent_loader.save_harness_trace(thread_id, harness_trace)
+                        # 中断（审批/补充）也是会话的自然落点，必须入库否则历史列表里看不到
+                        await agent_loader.save_conversation(
+                            thread_id, user_id, _derive_title(message, display_messages)
+                        )
                         async for evt in flush_trace(interrupted=True):
                             yield evt
                         yield sse_event("done", {"thread_id": thread_id, "interrupted": True})
@@ -360,10 +377,10 @@ async def stream_chat_response(
         await agent_loader.save_display_messages(thread_id, display_messages)
         await agent_loader.save_harness_trace(thread_id, harness_trace)
 
-        # 自动生成会话标题（首条消息前20字）
-        if message:
-            title = message[:20] + "..." if len(message) > 20 else message
-            await agent_loader.save_conversation(thread_id, user_id, title)
+        # 会话入库：resume 场景 message 为空，用首条用户消息兜底生成标题
+        await agent_loader.save_conversation(
+            thread_id, user_id, _derive_title(message, display_messages)
+        )
 
         async for evt in flush_trace(interrupted=False):
             yield evt
@@ -371,7 +388,15 @@ async def stream_chat_response(
 
     except Exception as e:
         web_logger.error(f"Stream error for thread {thread_id}: {e}", exc_info=True)
-        # 异常也要留下链路，方便事后定位"哪一步失败的"
+        # 异常也要留下链路和会话记录，方便事后定位"哪一步失败的"以及历史列表可见
+        try:
+            if display_messages:
+                await agent_loader.save_display_messages(thread_id, display_messages)
+            await agent_loader.save_conversation(
+                thread_id, user_id, _derive_title(message, display_messages)
+            )
+        except Exception:
+            pass
         try:
             async for evt in flush_trace(interrupted=True):
                 yield evt
