@@ -1,4 +1,4 @@
-import { Conversation, ChatRequest, ResumeRequest, TraceRun, TraceRunSummary } from "./types";
+import { Conversation, ChatRequest, ResumeRequest, TraceRun, TraceRunSummary, UserProfile } from "./types";
 
 const BASE_URL = "http://localhost:8000/api";
 
@@ -103,4 +103,20 @@ export async function deleteConversation(threadId: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+}
+
+// ===== 画像 API =====
+export async function getProfile(userId: string): Promise<UserProfile> {
+  const res = await fetch(`${BASE_URL}/profile/${userId}`);
+  if (!res.ok) throw new Error(`Profile failed: ${res.status}`);
+  return res.json();
+}
+
+export async function updateProfile(userId: string, content: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/profile/${userId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) throw new Error(`Profile update failed: ${res.status}`);
 }

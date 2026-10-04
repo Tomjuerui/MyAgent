@@ -232,3 +232,10 @@ export interface CapabilityCard {
   description: string;
   prompt: string;
 }
+
+// ===== 用户画像 =====
+export interface UserProfile {
+  user_id: string;
+  content: string;
+  quick_report_prompt: string;
+}
