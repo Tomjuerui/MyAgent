@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
+import { Outfit } from "next/font/google";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
+// 西文用 Outfit：几何无衬线，与 Google Sans 同气质。构建期打包，不依赖用户本地字体。
+// 中文没有对应字重，按字形回落到系统黑体（见 globals.css 的 --font-sans）。
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "智能采购助手 - ERP Agent",
-  description: "基于 Harness Engineering 架构的智能采购助手",
+  title: `${BRAND.name} - ${BRAND.tagline}`,
+  description: BRAND.description,
 };
 
 // 首帧前定主题：放到 <head> 里同步执行，否则刷新会先闪一帧白底再翻成暗色
@@ -15,7 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
+    <html
+      lang="zh-CN"
+      className={`${outfit.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>

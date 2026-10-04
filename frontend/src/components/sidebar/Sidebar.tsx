@@ -1,6 +1,8 @@
 "use client";
 
+import { Settings } from "lucide-react";
 import { Conversation } from "@/lib/types";
+import { BRAND } from "@/lib/brand";
 import Logo from "./Logo";
 import NewChatButton from "./NewChatButton";
 import SearchBox from "./SearchBox";
@@ -43,15 +45,30 @@ export default function Sidebar({
         onSelect={onSelectThread}
         onDelete={onDeleteThread}
       />
-      <button
-        onClick={onEditProfile}
-        className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-line-200 px-3 py-2 text-[13px] text-ink-600 hover:bg-surface-100"
-      >
-        编辑用户画像
-      </button>
-      <div className="flex items-center justify-between border-t border-line-200 px-4 py-2">
-        <span className="ic-metric">DeepAgent v1.0.0</span>
-        <ThemeToggle />
+
+      {/* 底部用户行：头像 + 名称 + 版本，右侧是主题切换与画像入口 */}
+      <div className="border-t border-line-200 px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-signal-soft text-[13px] font-medium text-signal-lo">
+            {BRAND.userRole.slice(0, 1)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-medium leading-tight text-ink-800">
+              {BRAND.userRole}
+            </div>
+            <div className="ic-metric leading-tight">DeepAgent {BRAND.version}</div>
+          </div>
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={onEditProfile}
+            className="ic-icon-btn shrink-0"
+            aria-label="编辑用户画像"
+            title="编辑用户画像"
+          >
+            <Settings size={14} />
+          </button>
+        </div>
       </div>
     </aside>
   );

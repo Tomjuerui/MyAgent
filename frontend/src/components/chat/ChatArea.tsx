@@ -70,11 +70,10 @@ export default function ChatArea({
   const hasContent = messages.length > 0 || loadingThread;
 
   return (
-    <main className="relative flex h-full min-w-0 flex-1 flex-col bg-surface-000">
-      {/* 顶部工具栏 */}
+    <main className="ic-atmosphere relative flex h-full min-w-0 flex-1 flex-col">
+      {/* 顶部工具栏：去掉实心横线与「控制台」标签，只留悬浮控件 */}
       {hasContent && (
-        <div className="flex items-center justify-between border-b border-line-200 px-6 py-2">
-          <span className="ic-label">技术情报控制台</span>
+        <div className="flex items-center justify-end gap-2 px-6 py-2">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowTrace((v) => !v)}
@@ -105,7 +104,7 @@ export default function ChatArea({
       {/* Harness 阶段指示器 */}
       <HarnessPhaseBar phase={phase} phaseLabel={phaseLabel} visible={streaming || phase === "done"} />
 
-      {/* 消息区域 / 欢迎页 */}
+      {/* 消息区域 / 欢迎页。空态把输入框交给 hero，标题与输入框才能同屏 */}
       {hasContent ? (
         <MessageList
           messages={messages}
@@ -114,7 +113,14 @@ export default function ChatArea({
           loading={loadingThread}
         />
       ) : (
-        <WelcomeScreen onPromptClick={onSend} />
+        <WelcomeScreen onPromptClick={onSend}>
+          <InputBar
+            onSend={onSend}
+            disabled={streaming}
+            queued={pendingQueue.length}
+            variant="inline"
+          />
+        </WelcomeScreen>
       )}
 
       {/* 深度思考动画 */}
@@ -130,8 +136,10 @@ export default function ChatArea({
         />
       )}
 
-      {/* 输入区 */}
-      <InputBar onSend={onSend} disabled={streaming} queued={pendingQueue.length} />
+      {/* 输入区（会话态才粘底；空态已在 hero 内渲染过一份） */}
+      {hasContent && (
+        <InputBar onSend={onSend} disabled={streaming} queued={pendingQueue.length} />
+      )}
 
       {/* 执行链路抽屉 */}
       {showTrace && (

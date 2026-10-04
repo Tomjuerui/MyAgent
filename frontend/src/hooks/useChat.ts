@@ -5,10 +5,11 @@ import { v4 as uuidv4 } from "uuid";
 import { ChatMessage, ToolCallInfo, SSEEvent, InterruptData, TodoItem, TraceSpan, TraceStats, TraceRunSummary } from "@/lib/types";
 import { streamChat, resumeChat, fetchTrace, fetchTraceRuns } from "@/lib/api";
 import { ALL_RUNS, RunBoundary } from "@/lib/timeline-mode";
+import { BRAND } from "@/lib/brand";
 import { useSSE } from "./useSSE";
 
 const USER_ID = "user-001";
-const USERNAME = "采购管理员";
+const USERNAME = BRAND.userRole;
 
 // 会话 ID 持久化：URL query（?thread=xxx），刷新/回退/分享都能恢复当前会话
 function readThreadFromUrl(): string | null {
@@ -190,7 +191,7 @@ export function useChat() {
           if (event.status === "start") {
             setThinking(true);
             setPhase("thinking");
-            setPhaseLabel("💭 深度思考中");
+            setPhaseLabel("深度思考中");
           } else {
             // 延迟结束 thinking，保证动画至少显示 800ms
             setTimeout(() => setThinking(false), 800);
@@ -262,7 +263,7 @@ export function useChat() {
           flushAssistantUpdate();
           setStreaming(false);
           setPhase("done");
-          setPhaseLabel("✅ 完成");
+          setPhaseLabel("完成");
           // 本轮 trace 已在 done 之前落库，刷新 run 列表供切换查看
           {
             const id = threadIdRef.current;

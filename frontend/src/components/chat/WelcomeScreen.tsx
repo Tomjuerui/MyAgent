@@ -30,9 +30,11 @@ const CARDS: CapabilityCard[] = [
 
 interface Props {
   onPromptClick: (prompt: string) => void;
+  /** 空态输入框。传进来而不是固定钉在底部，才能让标题与输入框同屏。 */
+  children?: React.ReactNode;
 }
 
-export default function WelcomeScreen({ onPromptClick }: Props) {
+export default function WelcomeScreen({ onPromptClick, children }: Props) {
   const [quickPrompt, setQuickPrompt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,39 +43,32 @@ export default function WelcomeScreen({ onPromptClick }: Props) {
       .catch(() => setQuickPrompt(null));
   }, []);
 
-  return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[var(--content-width)] px-6 pb-12 pt-[10vh]">
-        <div className="flex items-center gap-2">
-          <span className="ic-tag ic-tag-go">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-go" />
-            就绪
-          </span>
-          <span className="ic-metric">只读网页采集已接入</span>
-        </div>
+  const chips: CapabilityCard[] = quickPrompt
+    ? [
+        {
+          icon: "analysis",
+          title: "快速生成研报",
+          description: "基于你的画像一键生成个性化研报",
+          prompt: quickPrompt,
+        },
+        ...CARDS,
+      ]
+    : CARDS;
 
-        <h1 className="mt-4 text-[26px] font-semibold tracking-tight text-ink-900">
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto flex min-h-full w-full max-w-[var(--content-width)] flex-col justify-center px-6 pb-14 pt-8">
+        <h1 className="text-center text-[30px] font-normal leading-[1.25] tracking-tight text-ink-700 md:text-[38px]">
           今天要追踪哪条技术动态
         </h1>
-        <p className="mt-2 max-w-[62ch] text-[14px] leading-relaxed text-ink-500">
-          已接入只读网页采集 MCP（发版页 / 社区热帖 / 论文摘要），所有结论附来源链接。
-          选择下面的指令开始，或直接描述你要追踪的对象。
+        <p className="mx-auto mt-3 max-w-[46ch] text-center text-[14px] leading-relaxed text-ink-400">
+          发版页 / 社区热帖 / 论文摘要，所有结论附来源链接
         </p>
 
-        <div className="mt-8 space-y-2">
-          {quickPrompt && (
-            <CapabilityCardComponent
-              card={{
-                icon: "analysis",
-                title: "快速生成研报",
-                description: "基于你的画像一键生成个性化研报",
-                prompt: quickPrompt,
-              }}
-              index={0}
-              onClick={onPromptClick}
-            />
-          )}
-          {CARDS.map((card, idx) => (
+        <div className="mt-9">{children}</div>
+
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {chips.map((card, idx) => (
             <CapabilityCardComponent
               key={card.title}
               card={card}
@@ -81,6 +76,11 @@ export default function WelcomeScreen({ onPromptClick }: Props) {
               onClick={onPromptClick}
             />
           ))}
+        </div>
+
+        <div className="mt-7 flex items-center justify-center gap-2">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-go" />
+          <span className="ic-metric">只读网页采集已接入</span>
         </div>
       </div>
     </div>

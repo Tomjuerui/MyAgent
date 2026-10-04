@@ -14,7 +14,7 @@ const PATHS: Record<IconKey, React.ReactNode> = {
       <line x1="18" y1="21" x2="18" y2="15" />
     </>
   ),
-  // 采购下单 — 订单单据
+  // 订单单据
   order: (
     <>
       <rect x="4.5" y="3.5" width="15" height="17" />

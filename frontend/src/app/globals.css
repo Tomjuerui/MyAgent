@@ -29,11 +29,14 @@
   --line-400: #c8ced7;
   --line-500: #a8b0bb;
 
-  /* 强调色（单一，饱和度 73%，避开默认蓝紫） */
-  --signal: #3b6fe0;
-  --signal-hi: #2f5fc4;
-  --signal-lo: #1e4694;
-  --signal-soft: #eef3fd;
+  /* 强调色（单一）：Google Blue 600，向 Gemini 观感靠。
+     取 600 而非 500(#4285f4)，因为 #4285f4 上的白字对比度只有约 3.2:1，过不了 AA。 */
+  --signal: #1a73e8;
+  --signal-hi: #1557b0;
+  --signal-lo: #1a73e8;
+  --signal-soft: #e8f0fe;
+  /* 填充色之上的文字：浅色用白；暗色下 --signal 变亮，必须换深墨，否则糊成 1.9:1 */
+  --on-signal: #ffffff;
 
   /* 语义色 */
   --go: #2f8f5b;
@@ -53,9 +56,14 @@
   --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.04);
   --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12), 0 4px 8px rgba(16, 24, 40, 0.05);
 
-  /* 字体 */
-  --font-display: "Bahnschrift", "DIN Alternate", system-ui, sans-serif;
-  --font-sans: "IBM Plex Sans", "Segoe UI Variable Text", system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  /* 氛围光晕：纯装饰、不承载文字，所以可以用低对比的亮蓝 */
+  --glow-1: rgba(66, 133, 244, 0.16);
+  --glow-2: rgba(138, 180, 248, 0.22);
+
+  /* 字体：西文由 next/font 注入的 --font-outfit 承载；
+     中文按字形回落系统黑体。原 Bahnschrift / DIN Alternate 偏工程仪表气质，与 Gemini 取向冲突，已移除。 */
+  --font-display: var(--font-outfit), "Segoe UI Variable Display", system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-sans: var(--font-outfit), "Segoe UI Variable Text", system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-mono: "Cascadia Mono", "IBM Plex Mono", "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, ui-monospace, monospace;
 
   /* 布局 */
@@ -85,10 +93,11 @@
   --line-400: #414751;
   --line-500: #565d69;
 
-  --signal: #6b93ec;
-  --signal-hi: #82a5f0;
-  --signal-lo: #a8c2f6;
-  --signal-soft: #1f2a42;
+  --signal: #8ab4f8;
+  --signal-hi: #aecbfa;
+  --signal-lo: #aecbfa;
+  --signal-soft: #1e2a45;
+  --on-signal: #16181d;
 
   --go: #5cb98a;
   --go-soft: #172a21;
@@ -104,6 +113,10 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 8px rgba(0, 0, 0, 0.35);
+
+  /* 暗色氛围：亮蓝压到极低透明度，否则整屏发灰蓝 */
+  --glow-1: rgba(138, 180, 248, 0.10);
+  --glow-2: rgba(66, 133, 244, 0.09);
 }
 
 @theme inline {
@@ -130,6 +143,7 @@
   --color-signal-hi: var(--signal-hi);
   --color-signal-lo: var(--signal-lo);
   --color-signal-soft: var(--signal-soft);
+  --color-on-signal: var(--on-signal);
 
   --color-go: var(--go);
   --color-go-soft: var(--go-soft);
@@ -199,6 +213,19 @@ select {
 }
 
 /* ============================================================
+   氛围层 — 柔和渐变雾（对标 Gemini 的纵深感）
+   铺在元素自身 background-image 上而非 ::before，避免和子元素抢层叠上下文；
+   暗色模式只需换 --glow-* 变量，无需第二套规则。
+   ============================================================ */
+.ic-atmosphere {
+  background-color: var(--surface-000);
+  background-image:
+    radial-gradient(120% 92% at 50% 38%, var(--glow-1) 0%, transparent 74%),
+    radial-gradient(105% 72% at 74% 98%, var(--glow-2) 0%, transparent 78%);
+  background-repeat: no-repeat;
+}
+
+/* ============================================================
    原子类
    ============================================================ */
 
@@ -257,7 +284,7 @@ select {
   border: 1px solid var(--signal);
   border-radius: var(--radius-sm);
   background: var(--signal);
-  color: #ffffff;
+  color: var(--on-signal);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -305,7 +332,7 @@ select {
 .ic-btn-stop {
   background: var(--stop);
   border-color: var(--stop);
-  color: #ffffff;
+  color: var(--on-signal);
 }
 .ic-btn-stop:hover:not(:disabled) {
   background: #a93226;

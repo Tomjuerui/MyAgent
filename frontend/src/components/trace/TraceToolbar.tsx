@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { KindFilter, FILTER_LABEL } from "@/lib/trace-utils";
 import { TimelineMode, MODE_LABEL } from "@/lib/timeline-mode";
 
@@ -65,7 +66,7 @@ export default function TraceToolbar({
               if (onlyFailed) onToggleOnlyFailed();
             }}
             className={`rounded-[var(--radius-xs)] px-2 py-1 text-[11px] transition-colors ${
-              kindFilter === k && !onlyFailed ? "bg-signal text-white" : "text-ink-500 hover:bg-surface-100"
+              kindFilter === k && !onlyFailed ? "bg-signal text-on-signal" : "text-ink-500 hover:bg-surface-100"
             }`}
           >
             {FILTER_LABEL[k]}
@@ -91,7 +92,7 @@ export default function TraceToolbar({
               onClick={() => onSearchChange("")}
               className="rounded-[var(--radius-xs)] px-1.5 py-1 text-[11px] text-ink-400 hover:bg-surface-100"
             >
-              ✕
+              <X size={12} />
             </button>
           )}
         </div>
