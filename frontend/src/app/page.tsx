@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/sidebar/Sidebar";
 import ChatArea from "@/components/chat/ChatArea";
+import ProfileEditor from "@/components/chat/ProfileEditor";
 import { useChat } from "@/hooks/useChat";
 import { useHistory } from "@/hooks/useHistory";
 import { getMessages } from "@/lib/api";
@@ -28,6 +29,7 @@ export default function Home() {
   const history = useHistory();
   const wasStreaming = useRef(false);
   const [loadingThread, setLoadingThread] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // 聊天结束后自动刷新历史列表
   useEffect(() => {
@@ -108,6 +110,7 @@ export default function Home() {
         onNewChat={chat.newChat}
         onSelectThread={handleSelectThread}
         onDeleteThread={handleDeleteThread}
+        onEditProfile={() => setProfileOpen(true)}
       />
       <ChatArea
         messages={chat.messages}
@@ -134,6 +137,7 @@ export default function Home() {
         onApprove={handleApprove}
         onReject={handleReject}
       />
+      <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }

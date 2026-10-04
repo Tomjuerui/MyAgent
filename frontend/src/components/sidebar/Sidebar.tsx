@@ -15,6 +15,7 @@ interface Props {
   onNewChat: () => void;
   onSelectThread: (id: string) => void;
   onDeleteThread: (id: string) => void;
+  onEditProfile: () => void;
 }
 
 export default function Sidebar({
@@ -25,6 +26,7 @@ export default function Sidebar({
   onNewChat,
   onSelectThread,
   onDeleteThread,
+  onEditProfile,
 }: Props) {
   return (
     <aside
@@ -41,6 +43,12 @@ export default function Sidebar({
         onSelect={onSelectThread}
         onDelete={onDeleteThread}
       />
+      <button
+        onClick={onEditProfile}
+        className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-line-200 px-3 py-2 text-[13px] text-ink-600 hover:bg-surface-100"
+      >
+        编辑用户画像
+      </button>
       <div className="flex items-center justify-between border-t border-line-200 px-4 py-2">
         <span className="ic-metric">DeepAgent v1.0.0</span>
         <ThemeToggle />
