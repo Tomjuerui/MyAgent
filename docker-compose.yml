@@ -1,5 +1,5 @@
 # ============================================================
-# ERP 智能采购助手 — 全栈 Docker Compose 编排
+# DevEco Intelligence 技术情报智能体 — 全栈 Docker Compose 编排
 #
 # 启动顺序（compose 依据 depends_on 自动编排）:
 #   mongo + sandbox → mock-erp(:8081) → mcp-server(:9000) → backend(:8000) → frontend(:3000)
