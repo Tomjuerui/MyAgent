@@ -13,6 +13,18 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
+# 本地开发阶段：只备好 node_modules，源码由 docker-compose.override.yml
+# 以 ./frontend:/app 绑定挂载，`next dev` 提供 Fast Refresh。
+# 注意：/app/node_modules 在 compose 里被命名卷覆盖（首次从本阶段镜像内容初始化），
+# 避免宿主 Windows 的原生模块（lightningcss/sharp 等）污染容器。
+FROM node:22-alpine AS dev
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+EXPOSE 3000
+CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", "3000"]
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \

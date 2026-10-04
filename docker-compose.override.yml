@@ -1,0 +1,61 @@
+# ============================================================
+# 本地开发热更新覆盖（docker compose 自动合并 docker-compose.yml）
+#
+# 目标：改代码即时生效，不再需要 `docker compose build`。
+#
+#   backend    : ./src → /app/src + uvicorn --reload（watchfiles 监听 *.py）
+#   mock-erp   : ./src → /app/src + uvicorn --reload
+#   mcp-server : ./src → /app/src，改完 `docker compose restart mcp-server` 生效
+#                （FastMCP 无内置 reload，无法热重启）
+#   frontend   : ./frontend → /app + next dev（Fast Refresh，改 tsx/css 秒级生效）
+#
+# 使用：
+#   docker compose build        # 仅首次（装 watchfiles、构建 myagent-frontend:dev）
+#   docker compose up -d
+#   docker compose logs -f backend
+#
+# 注意：
+#   1. 回到生产模式（不挂源码、用 next start 的 standalone 产物）：
+#        docker compose -f docker-compose.yml build frontend
+#        docker compose -f docker-compose.yml up -d
+#      两条都要执行——只 up 不 build 会用到旧的 dev 镜像。
+#   2. 前端新增依赖后：`docker compose exec frontend npm install`（node_modules 在命名卷里）
+#   3. mock-erp 的 SQLite 会写到宿主 src/mock_erp/erp.db（bind mount 的副作用），
+#      需要重置：`MOCK_ERP_RESET=1 docker compose restart mock-erp`
+#   4. Windows 宿主若改了文件但容器没热更新（Docker Desktop 未把 inotify 事件传进容器），
+#      给 backend / mock-erp 加环境变量 WATCHFILES_FORCE_POLLING: "true"，
+#      给 frontend 加 WATCHPACK_POLLING: "true"。
+# ============================================================
+services:
+  mock-erp:
+    command: python -m uvicorn src.mock_erp.main:app --host 0.0.0.0 --port 8081 --reload --reload-dir /app/src --reload-exclude /app/src/download
+    volumes:
+      - ./src:/app/src
+
+  mcp-server:
+    volumes:
+      - ./src:/app/src
+
+  backend:
+    command: python -m uvicorn src.api_view.web_main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src --reload-exclude /app/src/download
+    volumes:
+      # 源码热挂载；下载产物目录由基座 compose 的 download-data 卷嵌套覆盖，
+      # 且被 --reload-exclude 排除，写入文件不会触发后端重启
+      - ./src:/app/src
+
+  frontend:
+    build:
+      target: dev
+    # 独立 tag，避免覆盖基座的生产镜像 myagent-frontend:local（生产镜像由 runner 阶段产出，
+    # 单独用 `docker compose -f docker-compose.yml build frontend` 构建）
+    image: myagent-frontend:dev
+    command: npm run dev -- -H 0.0.0.0 -p 3000
+    volumes:
+      - ./frontend:/app
+      # 保护容器内 node_modules / .next，避免宿主 Windows 版本覆盖 Linux 原生模块
+      - frontend-node-modules:/app/node_modules
+      - frontend-next:/app/.next
+
+volumes:
+  frontend-node-modules:
+  frontend-next:
