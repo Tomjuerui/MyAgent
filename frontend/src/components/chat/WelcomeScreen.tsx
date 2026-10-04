@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CapabilityCard } from "@/lib/types";
 import CapabilityCardComponent from "@/components/common/CapabilityCard";
+import { getProfile } from "@/lib/api";
+
+const USER_ID = "user-001";
 
 const CARDS: CapabilityCard[] = [
   {
@@ -29,6 +33,14 @@ interface Props {
 }
 
 export default function WelcomeScreen({ onPromptClick }: Props) {
+  const [quickPrompt, setQuickPrompt] = useState<string | null>(null);
+
+  useEffect(() => {
+    getProfile(USER_ID)
+      .then((p) => setQuickPrompt(p.quick_report_prompt))
+      .catch(() => setQuickPrompt(null));
+  }, []);
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-[var(--content-width)] px-6 pb-12 pt-[10vh]">
@@ -49,6 +61,18 @@ export default function WelcomeScreen({ onPromptClick }: Props) {
         </p>
 
         <div className="mt-8 space-y-2">
+          {quickPrompt && (
+            <CapabilityCardComponent
+              card={{
+                icon: "analysis",
+                title: "快速生成研报",
+                description: "基于你的画像一键生成个性化研报",
+                prompt: quickPrompt,
+              }}
+              index={0}
+              onClick={onPromptClick}
+            />
+          )}
           {CARDS.map((card, idx) => (
             <CapabilityCardComponent
               key={card.title}
