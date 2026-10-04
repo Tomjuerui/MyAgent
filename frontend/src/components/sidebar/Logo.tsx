@@ -2,15 +2,12 @@
 
 export default function Logo() {
   return (
-    <div className="flex items-center gap-2.5 px-4 py-4 border-b border-line-200">
-      <div
-        className="w-8 h-8 flex items-center justify-center shrink-0"
-        style={{ background: "var(--signal)" }}
-      >
-        <span className="text-[15px] text-[#eaf2f6] leading-none">采</span>
+    <div className="flex items-center gap-2.5 px-4 py-4">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-signal">
+        <span className="text-[15px] font-medium leading-none text-white">采</span>
       </div>
-      <div className="flex flex-col min-w-0">
-        <span className="text-[13px] font-medium text-ink-900 leading-tight truncate">
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-[13.5px] font-medium leading-tight text-ink-900">
           智能采购助手
         </span>
         <span className="ic-metric leading-tight">ERP Agent</span>

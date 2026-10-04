@@ -8,9 +8,9 @@ interface Props {
 
 export default function NewChatButton({ onClick }: Props) {
   return (
-    <div className="px-4 pt-3 pb-1">
+    <div className="px-3 pb-2">
       <button onClick={onClick} className="ic-btn w-full">
-        <Plus size={13} />
+        <Plus size={14} />
         新建对话
       </button>
     </div>

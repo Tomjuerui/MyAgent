@@ -38,7 +38,7 @@ export default function ApprovalCard({ data, onApprove, onReject }: Props) {
 
   return (
     <div className="animate-fade-in border-t border-line-200 bg-surface-000">
-      <div className="mx-auto w-full max-w-[1000px] px-8 py-3">
+      <div className="mx-auto w-full max-w-[var(--content-width)] px-6 py-3">
         <div className="ic-panel ic-accent-signal">
           <div className="flex items-center justify-between px-3 py-2 border-b border-line-200 bg-surface-050">
             <div className="flex items-center gap-2">

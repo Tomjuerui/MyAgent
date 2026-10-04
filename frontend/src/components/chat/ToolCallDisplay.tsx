@@ -1,11 +1,33 @@
 "use client";
 
+import { ChevronDown, ChevronRight, Loader2, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, SquareCheck } from "lucide-react";
 import { ToolCallInfo } from "@/lib/types";
 
 interface Props {
   toolCall: ToolCallInfo;
+}
+
+// 工具名 → 人话。与 ApprovalCard 的 BROWSER_TOOL_TITLES 保持同一套说法。
+const TOOL_TITLES: Record<string, string> = {
+  mcp_browser_navigate: "访问外部网站",
+  mcp_extract_table: "提取网页表格",
+  mcp_take_screenshot: "网页截图",
+  generate_chart: "生成图表",
+  document_generator: "生成文档",
+  download_sandbox_file: "提取沙箱文件",
+  web_search: "联网搜索",
+  web_fetch: "抓取网页",
+  write_todos: "更新计划",
+  task: "子智能体",
+  execute: "沙箱执行",
+};
+
+function toolTitle(name: string): string {
+  if (TOOL_TITLES[name]) return TOOL_TITLES[name];
+  if (name.startsWith("mcp_browser_")) return "网页采集";
+  if (name.startsWith("mcp_")) return name.slice(4).replace(/_/g, " ");
+  return name.replace(/_/g, " ");
 }
 
 export default function ToolCallDisplay({ toolCall }: Props) {
@@ -13,34 +35,34 @@ export default function ToolCallDisplay({ toolCall }: Props) {
   const running = toolCall.status === "running";
 
   return (
-    <div className="my-1 border border-line-300 bg-surface-000">
+    <div className="overflow-hidden rounded-[var(--radius-sm)] border border-line-200 bg-surface-050">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-2.5 py-1.5 bg-surface-100 hover:bg-surface-200 transition-colors text-left"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-surface-100"
       >
         {expanded ? (
-          <ChevronDown size={12} className="text-ink-400 shrink-0" />
+          <ChevronDown size={13} className="shrink-0 text-ink-400" />
         ) : (
-          <ChevronRight size={12} className="text-ink-400 shrink-0" />
+          <ChevronRight size={13} className="shrink-0 text-ink-400" />
         )}
-        <span className="font-mono text-[12px] text-ink-800 truncate">
-          {toolCall.name}
+        <span className="truncate text-[12.5px] text-ink-600">
+          {toolTitle(toolCall.name)}
         </span>
         {running ? (
-          <span className="ic-tag ic-tag-signal ml-auto">
+          <span className="ic-tag ic-tag-signal ml-auto shrink-0">
             <Loader2 size={11} className="animate-spin" />
             运行中
           </span>
         ) : (
-          <span className="ic-tag ic-tag-go ml-auto">
-            <SquareCheck size={11} />
+          <span className="ic-tag ic-tag-go ml-auto shrink-0">
+            <CheckCircle2 size={11} />
             完成
           </span>
         )}
       </button>
 
       {expanded && (
-        <div className="px-2.5 py-2 space-y-2 border-t border-line-200">
+        <div className="space-y-2.5 border-t border-line-200 px-3 py-2.5">
           {toolCall.args && (
             <div>
               <span className="ic-label">参数</span>

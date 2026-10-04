@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Square, CheckCircle2, Loader2, XCircle, ListTodo, X } from "lucide-react";
 import { TodoItem } from "@/lib/types";
-import { Square, SquareCheck, Loader2, XCircle, ListTodo, X } from "lucide-react";
 
 interface Props {
   items: TodoItem[];
@@ -12,7 +12,7 @@ interface Props {
 const STATUS_CONFIG = {
   pending: { icon: Square, cls: "text-ink-300" },
   in_progress: { icon: Loader2, cls: "text-signal", spin: true },
-  complete: { icon: SquareCheck, cls: "text-go" },
+  complete: { icon: CheckCircle2, cls: "text-go" },
   cancelled: { icon: XCircle, cls: "text-stop" },
 } as const;
 
@@ -28,7 +28,7 @@ export default function TodoListPanel({ items, visible }: Props) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-14 right-4 z-[9999] ic-btn-ghost animate-fade-in"
+        className="ic-btn-ghost animate-fade-in absolute right-6 top-14 z-30 shadow-md"
       >
         <ListTodo size={13} />
         <span>
@@ -39,11 +39,11 @@ export default function TodoListPanel({ items, visible }: Props) {
   }
 
   return (
-    <div className="fixed top-14 right-4 w-72 z-[9999] ic-panel animate-fade-in">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-line-200 bg-surface-050">
+    <div className="ic-panel animate-fade-in absolute right-6 top-14 z-30 w-72">
+      <div className="flex items-center justify-between border-b border-line-200 px-3 py-2">
         <div className="flex items-center gap-2">
-          <ListTodo size={13} className="text-signal" />
-          <span className="text-[12px] font-medium text-ink-700">任务规划</span>
+          <ListTodo size={14} className="text-signal" />
+          <span className="text-[12.5px] font-medium text-ink-700">任务规划</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="ic-metric">
@@ -51,7 +51,7 @@ export default function TodoListPanel({ items, visible }: Props) {
           </span>
           <button
             onClick={() => setOpen(false)}
-            className="p-0.5 text-ink-300 hover:text-ink-600 transition-colors"
+            className="ic-icon-btn p-1"
             title="收起"
           >
             <X size={13} />
@@ -63,20 +63,20 @@ export default function TodoListPanel({ items, visible }: Props) {
         <span style={{ width: `${progress}%` }} />
       </div>
 
-      <div className="px-3 py-2 max-h-60 overflow-y-auto">
+      <div className="max-h-64 overflow-y-auto px-3 py-2">
         {items.map((item) => {
           const config = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
           const Icon = config.icon;
           return (
-            <div key={item.id} className="flex items-start gap-2.5 py-1">
+            <div key={item.id} className="flex items-start gap-2.5 py-1.5">
               <Icon
-                size={13}
-                className={`${config.cls} shrink-0 mt-0.5 ${
+                size={14}
+                className={`${config.cls} mt-0.5 shrink-0 ${
                   "spin" in config && config.spin ? "animate-spin" : ""
                 }`}
               />
               <span
-                className={`text-[12px] leading-relaxed ${
+                className={`text-[12.5px] leading-relaxed ${
                   item.status === "complete"
                     ? "text-ink-300 line-through"
                     : item.status === "in_progress"

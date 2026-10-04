@@ -21,8 +21,7 @@ const PHASES = [
 const PHASE_ORDER = ["thinking", "planning", "executing", "reviewing", "result"];
 
 /**
- * 阶段状态条
- * 思考 → 规划 → 执行 → 审查 → 完成
+ * 阶段状态条：思考 → 规划 → 执行 → 审查 → 完成
  */
 export default function HarnessPhaseBar({ phase, phaseLabel, visible }: Props) {
   if (!visible || phase === "idle") return null;
@@ -31,38 +30,41 @@ export default function HarnessPhaseBar({ phase, phaseLabel, visible }: Props) {
 
   return (
     <div className="border-b border-line-200 bg-surface-000">
-      <div className="mx-auto w-full max-w-[1000px] px-8 py-2">
-        <div className="flex items-stretch border border-line-300">
-          {PHASES.map((p, idx) => {
-            const Icon = p.icon;
-            const isPast = idx < currentIdx;
-            const isCurrent = idx === currentIdx;
+      <div className="mx-auto flex w-full max-w-[var(--content-width)] items-center gap-1 px-6 py-2.5">
+        {PHASES.map((p, idx) => {
+          const Icon = p.icon;
+          const isPast = idx < currentIdx;
+          const isCurrent = idx === currentIdx;
 
-            const tone = isCurrent
-              ? "bg-signal text-[#eaf2f6]"
-              : isPast
-                ? "bg-surface-000 text-go"
-                : "bg-surface-100 text-ink-300";
+          const tone = isCurrent
+            ? "bg-signal-soft text-signal-lo"
+            : isPast
+              ? "text-go"
+              : "text-ink-300";
 
-            return (
+          return (
+            <div key={p.key} className="flex items-center">
               <div
-                key={p.key}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 transition-colors duration-200 ${tone} ${
-                  idx < PHASES.length - 1 ? "border-r border-line-300" : ""
-                }`}
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] transition-colors duration-200 ${tone}`}
               >
                 <Icon size={12} />
-                <span className="font-mono text-[11px] tracking-wider">{p.label}</span>
+                <span>{p.label}</span>
               </div>
-            );
-          })}
-        </div>
+              {idx < PHASES.length - 1 && (
+                <span
+                  className={`mx-0.5 h-px w-3 ${
+                    isPast ? "bg-go" : "bg-line-300"
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
 
         {phaseLabel && (
-          <div className="mt-1.5 flex items-center gap-2">
-            <span className="ic-label">当前阶段</span>
-            <span className="text-[12px] text-ink-600">{phaseLabel}</span>
-          </div>
+          <span className="ml-auto truncate pl-3 text-[12px] text-ink-400">
+            {phaseLabel}
+          </span>
         )}
       </div>
     </div>

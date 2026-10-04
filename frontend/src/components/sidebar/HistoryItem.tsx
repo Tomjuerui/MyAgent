@@ -18,20 +18,14 @@ export default function HistoryItem({
 }: Props) {
   return (
     <div
-      className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-l-[3px] transition-colors ${
-        active
-          ? "border-signal bg-signal-soft"
-          : "border-transparent hover:bg-surface-100"
+      className={`group flex cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] px-2.5 py-2 transition-colors ${
+        active ? "bg-signal-soft" : "hover:bg-surface-100"
       }`}
       onClick={() => onSelect(conversation.thread_id)}
     >
       <span
-        className="w-1.5 h-1.5 shrink-0"
-        style={{ background: active ? "var(--signal)" : "var(--line-400)" }}
-      />
-      <span
-        className={`flex-1 text-[13px] truncate ${
-          active ? "text-signal-lo" : "text-ink-600"
+        className={`min-w-0 flex-1 truncate text-[13px] ${
+          active ? "font-medium text-signal-lo" : "text-ink-600"
         }`}
       >
         {conversation.title}
@@ -41,7 +35,7 @@ export default function HistoryItem({
           e.stopPropagation();
           onDelete(conversation.thread_id);
         }}
-        className="opacity-0 group-hover:opacity-100 p-0.5 text-ink-300 hover:text-stop transition-all"
+        className="ic-icon-btn shrink-0 p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         title="删除"
       >
         <Trash2 size={13} />

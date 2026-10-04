@@ -5,6 +5,7 @@ import Logo from "./Logo";
 import NewChatButton from "./NewChatButton";
 import SearchBox from "./SearchBox";
 import HistoryList from "./HistoryList";
+import ThemeToggle from "./ThemeToggle";
 
 interface Props {
   conversations: Conversation[];
@@ -27,11 +28,8 @@ export default function Sidebar({
 }: Props) {
   return (
     <aside
-      className="h-screen flex flex-col bg-surface-050 shrink-0"
-      style={{
-        width: "var(--shell-sidebar)",
-        borderRight: "1px solid var(--line-300)",
-      }}
+      className="flex h-full shrink-0 flex-col border-r border-line-200 bg-surface-050"
+      style={{ width: "var(--shell-sidebar)" }}
     >
       <Logo />
       <NewChatButton onClick={onNewChat} />
@@ -39,11 +37,13 @@ export default function Sidebar({
       <HistoryList
         conversations={conversations}
         activeThreadId={activeThreadId}
+        searchQuery={searchQuery}
         onSelect={onSelectThread}
         onDelete={onDeleteThread}
       />
-      <div className="px-4 py-2.5 border-t border-line-200">
+      <div className="flex items-center justify-between border-t border-line-200 px-4 py-2">
         <span className="ic-metric">DeepAgent v1.0.0</span>
+        <ThemeToggle />
       </div>
     </aside>
   );
