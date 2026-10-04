@@ -185,8 +185,9 @@ MongoDB → Docker 沙箱 → mock-erp(:8081) → ERP MCP(:9000) → webintel-mc
 # 1. MongoDB
 docker run -d --name mongodb -p 27017:27017 mongo:6.0
 
-# 2. 沙箱容器
-docker run -d --name erp-sandbox -w /workspace python:3.11-slim sleep infinity
+# 2. 沙箱容器（镜像自带中文字体，图表中文渲染依赖它）
+docker compose build sandbox
+docker run -d --name erp-sandbox -w /workspace myagent-sandbox:local sleep infinity
 
 # 3. Mock ERP（首次启动自动灌入种子数据）
 python -m src.mock_erp.main

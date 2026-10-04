@@ -40,8 +40,13 @@ services:
   # backend 通过挂载的 docker.sock 以容器名 "erp-sandbox" 找到它。
   # 安全防护对齐 sandbox_setup.py：资源上限 + cap 收紧 + tmpfs + 禁止提权
   # （自定义 seccomp.json 需宿主存在该文件，容器内无法传递，此处沿用 Docker 默认 seccomp）
+  # 镜像自带中文字体（docker/sandbox.Dockerfile）：图表在沙箱内用 matplotlib 渲染，
+  # 基础镜像 python:3.11-slim 无 CJK 字体，中文会变成缺字方块
   sandbox:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: docker/sandbox.Dockerfile
+    image: myagent-sandbox:local
     container_name: erp-sandbox
     restart: unless-stopped
     working_dir: /workspace
@@ -133,7 +138,7 @@ services:
       # 与 webintel-mcp 同一个开关：置 true 时 backend 会把「当前为离线演示」注入系统提示词，
       # 否则模型识别出 mock 页面的 Demo 标记后会拒绝产出
       DEMO_MODE: ${DEMO_MODE:-false}
-      SANDBOX_IMAGE: python:3.11-slim
+      SANDBOX_IMAGE: myagent-sandbox:local
     ports:
       - "8000:8000"
     volumes:

@@ -92,7 +92,9 @@ CRAWL_ALLOW_DOMAINS = get_env(
 _CRAWL_ALLOW_SET = {d.strip().lower() for d in CRAWL_ALLOW_DOMAINS.split(",") if d.strip()}
 
 # ============ 沙箱配置 ============
-SANDBOX_IMAGE = get_env("SANDBOX_IMAGE", "python:3.11-slim")#Docker 镜像名称，具体是 Python 3.11 的 slim（精简）版本
+# 沙箱镜像：自建 tag，自带中文字体（docker/sandbox.Dockerfile），
+# 图表中文渲染依赖它；直接用 python:3.11-slim 会出缺字方块
+SANDBOX_IMAGE = get_env("SANDBOX_IMAGE", "myagent-sandbox:local")
 SANDBOX_WORK_DIR = "/workspace"
 SANDBOX_SKILLS_DIR = "/skills"
 SANDBOX_MEMORIES_DIR = "/memories"

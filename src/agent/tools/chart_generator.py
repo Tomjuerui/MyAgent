@@ -7,6 +7,7 @@
 - 生成后由本工具提取到宿主机 src/download/，经 /api/download 暴露给前端
 - 沙箱不可用时返回错误，不降级到宿主机执行
 """
+import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from langchain_core.tools import tool
 
 from ..log_utils import agent_logger
 from ..backends.sandbox_holder import get_sandbox
+from ..config import SANDBOX_IMAGE
 
 # 生成物落盘目录，与 src/api_view/web_main.py 的 /api/download/{filename} 对应
 DOWNLOAD_DIR = Path(__file__).parent.parent.parent / "download"
@@ -32,6 +34,30 @@ CHART_TYPES = [
     "sankey",
 ]
 
+def _chart_digest(
+    chart_type: str, data_list: list, title: str,
+    x_field: str, y_field: str, series_field: str,
+) -> str:
+    """图表内容指纹：类型/数据/标题/字段映射任一不同 → 不同图。
+
+    用于输出文件名，使同图幂等复用（模型反复"再画一张确认"不再产生重复 PNG）。
+    """
+    payload = json.dumps(
+        {
+            "chart_type": chart_type,
+            "data": data_list,
+            "title": title,
+            "x_field": x_field,
+            "y_field": y_field,
+            "series_field": series_field,
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+        default=str,
+    )
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:12]
+
+
 CHART_SCRIPT = '''
 import matplotlib
 matplotlib.use('Agg')
@@ -41,12 +67,20 @@ import json
 import sys
 import os
 
-for font in ['SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'DejaVu Sans']:
-    try:
-        plt.rcParams['font.sans-serif'] = [font]
+from matplotlib import font_manager
+
+# 必须查实际已注册的字体族：rcParams 赋值不会抛异常，
+# 只写 plt.rcParams['font.sans-serif'] = [font] 会永远"选中"不存在的字体，
+# 中文静默回退到无 CJK 字形的 DejaVu Sans，渲染成缺字方块
+_available_fonts = {f.name for f in font_manager.fontManager.ttflist}
+for _font in ['WenQuanYi Micro Hei', 'Source Han Sans SC', 'Noto Sans CJK SC',
+              'Microsoft YaHei', 'SimHei']:
+    if _font in _available_fonts:
+        plt.rcParams['font.sans-serif'] = [_font]
+        print('FONT:' + _font)
         break
-    except:
-        continue
+else:
+    print('FONT:NONE')
 plt.rcParams['axes.unicode_minus'] = False
 
 params_path = sys.argv[1]
@@ -256,12 +290,27 @@ def generate_chart(
     if sandbox is None:
         return "错误: 沙箱不可用。请确保 Docker 沙箱容器已启动。"
 
-    # 沙箱内路径
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in title[:20])
-    output_name = f"chart_{chart_type}_{safe_title}_{timestamp}.png"
+    # 内容哈希命名：同图（同类型+同数据+同标题+同字段映射）复用同一文件名，天然幂等
+    digest = _chart_digest(chart_type, data_list, title, x_field, y_field, series_field)
+    output_name = f"chart_{chart_type}_{digest}.png"
     charts_dir = "/workspace/charts"
     output_path = f"{charts_dir}/{output_name}"
+
+    # 幂等短路：宿主机下载目录已有同图 → 直接复用，不重跑 matplotlib
+    existing = DOWNLOAD_DIR / output_name
+    if existing.exists() and existing.stat().st_size > 0:
+        image_url = f"/api/download/{output_name}"
+        agent_logger.info(f"Chart cache hit (host): {output_name}")
+        return "\n".join([
+            "✅ 图表已生成!（复用已有同图）",
+            f"标题: {title}",
+            f"类型: {chart_type}",
+            f"数据点: {len(data_list)}",
+            f"图片链接: {image_url}",
+            f"在回复中用 Markdown 引用该图（不要另存或改写链接）: ![{title}]({image_url})",
+        ])
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     params_filename = f"_params_{timestamp}.json"
     script_filename = f"_chart_script_{timestamp}.py"
     params_path = f"{charts_dir}/{params_filename}"
@@ -286,14 +335,28 @@ def generate_chart(
         sandbox.write_file(params_path, json.dumps(params, ensure_ascii=False))
         sandbox.write_file(script_path, CHART_SCRIPT)
 
-        # 安装依赖（仅首次，后续复用缓存）
-        sandbox.execute("pip install -q matplotlib numpy 2>/dev/null || true", timeout=60)
+        # 依赖探测：已装则直接 import（毫秒级），缺失才 pip。
+        # 之前每次调用都无脑跑一次 pip，8 张图就多 8 个 pip 进程。
+        sandbox.execute(
+            "python -c 'import matplotlib, numpy' 2>/dev/null "
+            "|| pip install -q matplotlib numpy 2>/dev/null || true",
+            timeout=60,
+        )
 
         # 在沙箱内执行图表生成
         result = sandbox.execute(f"python {script_path} {params_path}", timeout=30)
 
         # 清理临时文件
         sandbox.execute(f"rm -f {params_path} {script_path} 2>/dev/null || true")
+
+        # 沙箱无中文字体：明确报错，而不是静默产出满是缺字方块的图
+        if "FONT:NONE" in result.output:
+            return (
+                "错误: 沙箱环境缺少中文字体，图表中文会渲染成缺字方块。"
+                f"请确认沙箱镜像自带字体（SANDBOX_IMAGE={SANDBOX_IMAGE}，"
+                "见 docker/sandbox.Dockerfile）并已执行 "
+                "`docker compose build sandbox && docker compose up -d sandbox`。"
+            )
 
         # 检查输出是否成功
         if result.exit_code == 0 and "OK:" in result.output:

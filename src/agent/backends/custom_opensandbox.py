@@ -70,7 +70,7 @@ class CustomOpenSandbox(BaseSandbox):
                 f"Docker container '{self._container_name}' not found. "
                 f"Please start it with:\n"
                 f"  docker run -d --name {self._container_name} "
-                f"-w {self._work_dir} python:3.11-slim sleep infinity"
+                f"-w {self._work_dir} myagent-sandbox:local sleep infinity"
             )
         except Exception as e:
             raise RuntimeError(f"Failed to connect to Docker sandbox: {e}")
