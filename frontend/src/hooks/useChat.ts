@@ -55,6 +55,8 @@ export function useChat() {
   }, [threadId]);
 
   const assistantMsgRef = useRef<string>("");
+  // 思考型模型的推理链累积（仅展示，不并入 assistantMsgRef 正文）
+  const assistantReasoningRef = useRef<string>("");
   const toolCallsRef = useRef<ToolCallInfo[]>([]);
   const currentToolIdRef = useRef<string>("");
   const pendingQueueRef = useRef<string[]>([]);
@@ -66,18 +68,25 @@ export function useChat() {
 
   const resetAssistantState = useCallback(() => {
     assistantMsgRef.current = "";
+    assistantReasoningRef.current = "";
     toolCallsRef.current = [];
     currentToolIdRef.current = "";
   }, []);
 
   const updateAssistantMessage = useCallback(() => {
-    if (!assistantMsgRef.current && toolCallsRef.current.length === 0) return;
+    if (
+      !assistantMsgRef.current &&
+      !assistantReasoningRef.current &&
+      toolCallsRef.current.length === 0
+    )
+      return;
     setMessages((prev) => {
       const lastMsg = prev[prev.length - 1];
       const updated: ChatMessage = {
         id: lastMsg?.role === "assistant" ? lastMsg.id : uuidv4(),
         role: "assistant",
         content: assistantMsgRef.current,
+        reasoning: assistantReasoningRef.current || undefined,
         toolCalls: [...toolCallsRef.current],
         timestamp: Date.now(),
       };
@@ -169,6 +178,12 @@ export function useChat() {
           if (event.interrupt_id && !pendingInterruptIdsRef.current.includes(event.interrupt_id)) {
             pendingInterruptIdsRef.current.push(event.interrupt_id);
           }
+          break;
+
+        case "reasoning":
+          // 推理链累积到独立 ref（不进正文），复用 50ms 批量节流避免高频重渲染
+          assistantReasoningRef.current += event.content;
+          scheduleAssistantUpdate();
           break;
 
         case "thinking":

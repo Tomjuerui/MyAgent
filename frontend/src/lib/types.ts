@@ -55,6 +55,12 @@ export interface SSEThinkingEvent {
   status: "start" | "end";
 }
 
+// 思考型模型的推理链（reasoning_content），仅展示、不落库
+export interface SSEReasoningEvent {
+  type: "reasoning";
+  content: string;
+}
+
 export interface SSETodoUpdateEvent {
   type: "todo_update";
   phase?: string;
@@ -153,6 +159,7 @@ export type SSEEvent =
   | SSEInterruptEvent
   | SSEDoneEvent
   | SSEThinkingEvent
+  | SSEReasoningEvent
   | SSETodoUpdateEvent
   | SSEPhaseEvent
   | SSETraceEvent
@@ -186,6 +193,8 @@ export interface ChatMessage {
   content: string;
   source?: string;
   toolCalls?: ToolCallInfo[];
+  // 思考型模型的推理链，流式期累积、仅展示，不参与正文与落库
+  reasoning?: string;
   timestamp: number;
 }
 

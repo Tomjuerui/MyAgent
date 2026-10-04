@@ -292,6 +292,19 @@ async def stream_chat_response(
                 content = getattr(token, "content", "")
                 tool_call_chunks = getattr(token, "tool_call_chunks", None)
 
+                # 思考型模型（hy4-preview-f / deepseek-v4.1-flash）推理期把正文放在
+                # content（此时为空）之外的 additional_kwargs.reasoning_content。
+                # 只实时透传给前端展示「思考过程」，绝不累加进 assistant_content，
+                # 否则推理链会混入研报正文并落库。
+                reasoning = (getattr(token, "additional_kwargs", None) or {}).get(
+                    "reasoning_content"
+                )
+                if reasoning and isinstance(reasoning, str) and reasoning.strip():
+                    if not thinking_emitted:
+                        yield sse_event("thinking", {"status": "end"})
+                        thinking_emitted = True
+                    yield sse_event("reasoning", {"content": reasoning})
+
                 # AIMessage with tool_call_chunks → tool_start / tool_args
                 if tool_call_chunks:
                     # 首次收到工具调用时结束 thinking 状态

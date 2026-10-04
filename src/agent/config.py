@@ -23,9 +23,39 @@ LLM_TEMPERATURE = 0.1
 LLM_MAX_TOKENS = get_env_int("LLM_MAX_TOKENS", 16384)
 
 
+class ReasoningChatOpenAI(ChatOpenAI):
+    """ChatOpenAI 子类：保留第三方网关的 reasoning_content。
+
+    langchain-openai 的 ChatOpenAI 只实现官方 OpenAI 规范，不提取非标准字段
+    reasoning_content（见 langchain_openai/chat_models/base.py 模块头 warning）。
+    思考型模型（hy4-preview-f / deepseek-v4.1-flash）推理期 content 为空、内容
+    全在 reasoning_content，若不保留则该字段被静默丢弃，前端在推理期长时间无
+    任何输出。此处覆写 chunk 转换钩子（_stream/_astream 都经此），把
+    reasoning_content 塞回 additional_kwargs，供 chat.py 透传为 reasoning 事件。
+    """
+
+    def _convert_chunk_to_generation_chunk(
+        self,
+        chunk: dict,
+        default_chunk_class: type,
+        base_generation_info: dict | None,
+    ):
+        generation_chunk = super()._convert_chunk_to_generation_chunk(
+            chunk, default_chunk_class, base_generation_info
+        )
+        if generation_chunk is not None:
+            choices = chunk.get("choices") or []
+            if choices:
+                delta = choices[0].get("delta") or {}
+                reasoning = delta.get("reasoning_content")
+                if reasoning:
+                    generation_chunk.message.additional_kwargs["reasoning_content"] = reasoning
+        return generation_chunk
+
+
 def get_llm() -> ChatOpenAI:
     """获取 LLM 实例（OpenAI 兼容接口，当前指向本地反代网关）"""
-    return ChatOpenAI(
+    return ReasoningChatOpenAI(
         model=LLM_MODEL,
         base_url=LLM_BASE_URL,
         api_key=LLM_API_KEY or "EMPTY",

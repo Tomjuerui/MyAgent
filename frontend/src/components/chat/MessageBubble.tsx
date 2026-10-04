@@ -6,6 +6,7 @@ import ToolCallDisplay from "./ToolCallDisplay";
 import StreamingText from "./StreamingText";
 import MarkdownRenderer from "./MarkdownRenderer";
 import MessageActions from "./MessageActions";
+import ReasoningBlock from "./ReasoningBlock";
 
 interface Props {
   message: ChatMessage;
@@ -51,6 +52,10 @@ function MessageBubble({ message, isStreaming, showToolCalls = true }: Props) {
         <div className="mb-2">
           <span className="ic-tag">{sourceLabel}</span>
         </div>
+      )}
+
+      {message.reasoning && (
+        <ReasoningBlock reasoning={message.reasoning} streaming={isStreaming} />
       )}
 
       {hasToolCalls && (
