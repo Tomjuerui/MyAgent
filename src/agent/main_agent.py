@@ -21,7 +21,7 @@ from .backends.custom_opensandbox import DockerSandboxBackend
 from .config import (
     get_llm, MONGODB_URI, MONGODB_DB_NAME,
     SKILLS_STORE_NAMESPACE, INTERRUPT_ON_TOOLS, _navigate_needs_approval,
-    MAX_MODEL_CALLS, MAX_TOOL_CALLS,
+    MAX_MODEL_CALLS, MAX_TOOL_CALLS, STALL_BREAKER_THRESHOLD,
 )
 from .schema import ProcurementContext
 from .log_utils import agent_logger
@@ -312,6 +312,9 @@ def create_main_agent(
     from .middlewares.tools_summarization import ToolsSummarizationMiddleware
     from .middlewares.memory_update import MemoryUpdateMiddleware
     from .middlewares.sandbox_breaker import SandboxCircuitBreakerMiddleware
+    from .middlewares.tool_dedup import ToolDedupMiddleware
+    from .middlewares.browser_route_guard import BrowserRouteGuardMiddleware
+    from .middlewares.stall_breaker import StallBreakerMiddleware
     # Harness 阶段状态机 + 评审器（真 Harness 架构核心）
     from .harness import HarnessPhaseMiddleware, load_harness_config
 
@@ -343,13 +346,18 @@ def create_main_agent(
         ToolsSummarizationMiddleware(),                               # 6. 摘要监控
         MemoryUpdateMiddleware(store=store, user_id=user_context.user_id),      # 7. 偏好提取
         SandboxCircuitBreakerMiddleware(failure_threshold=3, recovery_timeout=60),  # 8. 熔断器
+        BrowserRouteGuardMiddleware(),                                # 9. 浏览器路由硬拦截（API 优先落到机制）
+        ToolDedupMiddleware(),                                        # 10. 同轮只读工具去重
+        StallBreakerMiddleware(threshold=STALL_BREAKER_THRESHOLD),    # 11. 停摆熔断器（连续无新信息即硬停）
         # --- Harness 评审器（RubricMiddleware）---
         # 收到 rubric 后，grader 子Agent 结构化产出 satisfied/needs_revision/failed，
         # needs_revision 时自动打回模型重做，形成真实 Review 回路（非 prompt 软约束）
         RubricMiddleware(model=_review_llm, max_iterations=_review_max_iterations),
         # --- 框架内置中间件（调用限制）---
         ModelCallLimitMiddleware(run_limit=MAX_MODEL_CALLS),          # 模型调用上限
-        ToolCallLimitMiddleware(run_limit=MAX_TOOL_CALLS),            # 工具调用上限
+        # exit_behavior="end"：工具打满 30 次后干净结束，而不是默认 continue（后续工具全变
+        # error、模型继续烧到 50 轮——正是"一直执行不推进"的来源之一）。
+        ToolCallLimitMiddleware(run_limit=MAX_TOOL_CALLS, exit_behavior="end"),  # 工具调用上限
     ]
 
     # ===== 6. 构建系统提示词 =====

@@ -50,6 +50,8 @@ system_prompt: |
 
   ## 流程（发现 → 获取，API 优先，浏览器兜底）
   0. 只给框架名、未给精确 owner/repo 时，先用 search_github_repos(query) 发现候选仓库
+     —— 一次列全所有待发现的目标，合并成**一条**宽 query（如 "agent framework"），
+     用 per_page 一次取够候选，不要拆成多条近义 query 分头搜
   1. GitHub Releases → fetch_github_releases(owner, repo)
      HackerNews 热帖 → fetch_hackernews_top(stories_count, query)
      arXiv 论文 → fetch_arxiv_papers(query)
@@ -58,6 +60,19 @@ system_prompt: |
   3. 含版本/对比表格且 fetch_* 未覆盖时，追加 mcp_extract_table
   4. 需要截图取证时，追加 mcp_take_screenshot
   5. 按输出契约汇总，每条结论附 source_url
+
+  ## 采集预算（避免重复，必须遵守）
+  1. **API 优先是硬约束**：github.com / news.ycombinator.com / arxiv.org 三个域的数据
+     一律走 fetch_* 结构化 API，禁止用 mcp_browser_navigate 去访问 api.github.com
+     等同域接口「绕道」（既慢又触发域名审批）。
+     需要"最火 / Top N / 排行"类数据时，直接用 search_github_repos 的返回（已按 star 降序），
+     不要访问第三方排行榜站点（如 gitstar-ranking.com），那会触发域名审批且拿不到结构化数据
+  2. **同一轮同一参数只调一次**：同一 (工具, 参数) 已调用过就直接复用结果，
+     不要为提高"可信度"重查；大小写/空格差异视为同一参数（"LangGraph" == "langgraph"）
+  3. **禁止翻页变体**：不要用同一 URL 换 &p=2 / &p=3 逐页爬，改用 per_page / stories_count
+     参数一次取够；单次上限 per_page=30、stories_count=30
+  4. **先规划再采集**：动手前把所有目标仓库/关键词列成一张清单，去重后再逐个采集，
+     避免边做边想起新目标导致回头补采
 
   ## 工具失败处理
   - fetch_* 返回 {"error": ...} 时：说明 API 通道拿不到，改用 mcp_browser_navigate 兜底，不要反复重试同一 API

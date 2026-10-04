@@ -106,6 +106,13 @@ MAX_MODEL_CALLS = get_env_int("MAX_MODEL_CALLS", 50)
 MAX_TOOL_CALLS = get_env_int("MAX_TOOL_CALLS", 30)
 SUMMARIZATION_THRESHOLD = 0.85  # 85% 上下文窗口时触发摘要
 
+# 停摆熔断器：连续多少步（模型调用后无任何新信息）即强制结束，防止"一直规划执行不推进"。
+STALL_BREAKER_THRESHOLD = get_env_int("STALL_BREAKER_THRESHOLD", 3)
+# 子 Agent 调用上限：主 Agent 的限流中间件不传播到子 Agent，需单独注入，
+# 否则子 Agent（ecosystem-crawler / tech-analyst）可无上限循环（实测 99 次模型调用）。
+SUBAGENT_MAX_MODEL_CALLS = get_env_int("SUBAGENT_MAX_MODEL_CALLS", 15)
+SUBAGENT_MAX_TOOL_CALLS = get_env_int("SUBAGENT_MAX_TOOL_CALLS", 20)
+
 # ============ 中断配置 ============
 # 兜底层：白名单外域名时 WebIntel-MCP 会返回结构化 domain_not_allowed 错误，
 # 子 Agent YAML 的 interrupt_on 是主拦截路径，这里是全局兜底。

@@ -184,6 +184,35 @@ def load_subagent_configs() -> list[dict]:
     return configs
 
 
+def _build_dedup_middleware():
+    """构造同轮只读工具去重中间件（延迟导入，避免与 middlewares 包的循环依赖）。"""
+    from ..middlewares.tool_dedup import ToolDedupMiddleware
+    return ToolDedupMiddleware()
+
+
+def _build_browser_guard_middleware():
+    """构造浏览器路由硬拦截中间件（延迟导入，避免与 middlewares 包的循环依赖）。"""
+    from ..middlewares.browser_route_guard import BrowserRouteGuardMiddleware
+    return BrowserRouteGuardMiddleware()
+
+
+def _build_subagent_limit_middlewares():
+    """子 Agent 调用上限 + 停摆熔断。
+
+    主 Agent 的 ModelCallLimit/ToolCallLimit 中间件不会传播到子 Agent
+    （deepagents 用 spec["middleware"] 独立组装），不注入的话子 Agent 可无上限空转
+    （实测 e2e-report-6 达 99 次模型调用 / 104 次工具）。延迟导入避免循环依赖。
+    """
+    from langchain.agents.middleware import ModelCallLimitMiddleware, ToolCallLimitMiddleware
+    from ..config import SUBAGENT_MAX_MODEL_CALLS, SUBAGENT_MAX_TOOL_CALLS, STALL_BREAKER_THRESHOLD
+    from ..middlewares.stall_breaker import StallBreakerMiddleware
+    return [
+        StallBreakerMiddleware(threshold=STALL_BREAKER_THRESHOLD),
+        ModelCallLimitMiddleware(run_limit=SUBAGENT_MAX_MODEL_CALLS, exit_behavior="end"),
+        ToolCallLimitMiddleware(run_limit=SUBAGENT_MAX_TOOL_CALLS, exit_behavior="end"),
+    ]
+
+
 def resolve_subagent_tools(configs: list[dict], all_tools: list[BaseTool]) -> list[SubAgent]:
     """将 tools 字符串通过子串匹配映射为实际工具对象
     
@@ -232,6 +261,16 @@ def resolve_subagent_tools(configs: list[dict], all_tools: list[BaseTool]) -> li
             "description": config["description"],
             "system_prompt": config["system_prompt"] + output_contract,
             "tools": matched_tools,
+            # 同轮只读工具去重：子Agent（ecosystem-crawler）同样会重复 fetch_*，
+            # 主Agent 的中间件栈不会传播到子Agent（deepagents 用 spec["middleware"] 独立组装），
+            # 故在此显式注入。每个子Agent 一个实例，缓存各自按轮隔离。
+            # 浏览器路由硬拦截：crawler 是 browser 重复访问的主要来源，同样必须注入。
+            # 调用上限 + 停摆熔断：堵子Agent无上限空转。
+            "middleware": [
+                _build_browser_guard_middleware(),
+                _build_dedup_middleware(),
+                *_build_subagent_limit_middlewares(),
+            ],
         }
         
         # 如果有 interrupt_on 配置，添加到规格中
