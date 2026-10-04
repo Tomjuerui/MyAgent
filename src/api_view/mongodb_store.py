@@ -20,6 +20,18 @@ from langgraph.store.base import BaseStore, Item, Op
 from ..agent.log_utils import web_logger
 
 
+def _parse_iso(value: Any) -> datetime:
+    """把存储的 ISO 字符串还原为 datetime，容错返回当前时间。"""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    return datetime.now()
+
+
 class MongoDBStore(BaseStore):
     """
     MongoDB 持久化 Store
@@ -74,16 +86,8 @@ class MongoDBStore(BaseStore):
     def put(self, namespace: tuple[str, ...], key: str, value: Any) -> Item:
         """写入/更新存储项"""
         doc_id = self._namespace_key(namespace, key)
-        now = datetime.now().isoformat()
-
-        doc = {
-            "_id": doc_id,
-            "namespace": list(namespace),
-            "key": key,
-            "value": self._serialize_value(value),
-            "created_at": now,
-            "updated_at": now,
-        }
+        now = datetime.now()
+        now_iso = now.isoformat()
 
         # Upsert（保留 created_at）
         self._collection.update_one(
@@ -93,9 +97,9 @@ class MongoDBStore(BaseStore):
                     "namespace": list(namespace),
                     "key": key,
                     "value": self._serialize_value(value),
-                    "updated_at": now,
+                    "updated_at": now_iso,
                 },
-                "$setOnInsert": {"created_at": now},
+                "$setOnInsert": {"created_at": now_iso},
             },
             upsert=True,
         )
@@ -104,32 +108,51 @@ class MongoDBStore(BaseStore):
             namespace=namespace,
             key=key,
             value=value,
+            created_at=now,
+            updated_at=now,
         )
 
     def search(
         self,
         namespace_prefix: tuple[str, ...],
         *,
+        query: Optional[str] = None,
         filter: Optional[dict] = None,
         limit: int = 100,
         offset: int = 0,
+        refresh_ttl: Optional[bool] = None,
     ) -> list[Item]:
-        """搜索存储项（按 namespace 前缀匹配）"""
-        query = {"namespace": {"$regex": f"^{self._ns_prefix_pattern(namespace_prefix)}"}}
+        """搜索存储项（按 namespace 前缀匹配）。
+
+        query 为 LangGraph BaseStore.search 的语义检索入参（deepagents 框架会传）；
+        本实现无向量索引，降级为对 value/key 的朴素子串匹配，query 为空时返回前缀下全部。
+        refresh_ttl 无 TTL 语义，仅接受以对齐框架签名。
+        """
+        mongo_query = {"namespace": {"$regex": f"^{self._ns_prefix_pattern(namespace_prefix)}"}}
 
         if filter:
             # 简单值过滤
             for k, v in filter.items():
-                query[f"value.{k}"] = v
+                mongo_query[f"value.{k}"] = v
 
         cursor = (
-            self._collection.find(query)
+            self._collection.find(mongo_query)
             .sort("updated_at", -1)
             .skip(offset)
             .limit(limit)
         )
 
-        return [self._doc_to_item(doc) for doc in cursor]
+        items = [self._doc_to_item(doc) for doc in cursor]
+
+        if query:
+            q = query.lower()
+            items = [
+                it for it in items
+                if q in json.dumps(it.value, ensure_ascii=False).lower()
+                or q in str(it.key).lower()
+            ]
+
+        return items
 
     def delete(self, namespace: tuple[str, ...], key: str) -> None:
         """删除存储项"""
@@ -170,11 +193,20 @@ class MongoDBStore(BaseStore):
         self,
         namespace_prefix: tuple[str, ...],
         *,
+        query: Optional[str] = None,
         filter: Optional[dict] = None,
         limit: int = 100,
         offset: int = 0,
+        refresh_ttl: Optional[bool] = None,
     ) -> list[Item]:
-        return self.search(namespace_prefix, filter=filter, limit=limit, offset=offset)
+        return self.search(
+            namespace_prefix,
+            query=query,
+            filter=filter,
+            limit=limit,
+            offset=offset,
+            refresh_ttl=refresh_ttl,
+        )
 
     async def adelete(self, namespace: tuple[str, ...], key: str) -> None:
         return self.delete(namespace, key)
@@ -231,10 +263,14 @@ class MongoDBStore(BaseStore):
     def _doc_to_item(doc: dict) -> Item:
         """将 MongoDB 文档转为 Item"""
         namespace = tuple(doc.get("namespace", []))
+        created_at = _parse_iso(doc.get("created_at"))
+        updated_at = _parse_iso(doc.get("updated_at")) or created_at
         return Item(
             namespace=namespace,
             key=doc.get("key", ""),
             value=doc.get("value"),
+            created_at=created_at,
+            updated_at=updated_at,
         )
 
     @staticmethod
