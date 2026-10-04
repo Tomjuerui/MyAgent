@@ -31,6 +31,10 @@ except Exception as _trace_import_err:  # pragma: no cover
     LangChainTraceHandler = None
     web_logger.warning(f"Trace handler unavailable, tracing disabled: {_trace_import_err}")
 
+# Langfuse 旁路：模块顶层只 import os/log_utils，langfuse 包在函数内延迟 import，
+# 因此即使 langfuse 未安装，这里也不会抛错。
+from ...agent.trace.langfuse import build_langfuse_handler
+
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
@@ -41,11 +45,11 @@ def sse_event(event: str, data: dict) -> str:
 
 # Harness 阶段 → 前端展示文案
 PHASE_LABELS = {
-    "planning": "📝 规划中",
-    "executing": "⚙️ 执行中",
-    "reviewing": "🔍 审查中",
-    "result": "📊 已完成",
-    "thinking": "💭 思考中",
+    "planning": "规划中",
+    "executing": "执行中",
+    "reviewing": "审查中",
+    "result": "已完成",
+    "thinking": "思考中",
 }
 
 
@@ -83,8 +87,20 @@ async def stream_chat_response(
 
     # 执行链路采集：每次 SSE 请求（含 resume）一个 run
     collector = TraceCollector(thread_id=thread_id)
+
+    # 两个 handler 并存，各取所需：Langfuse 做全量快照（事后深查/成本），自研做实时前端链路
+    callbacks = []
+    langfuse_handler = build_langfuse_handler()
+    if langfuse_handler is not None:
+        callbacks.append(langfuse_handler)
     if LangChainTraceHandler is not None:
-        config["callbacks"] = [LangChainTraceHandler(collector)]
+        callbacks.append(LangChainTraceHandler(collector))
+    config["callbacks"] = callbacks
+    config["metadata"] = {
+        "langfuse_user_id": user_id,
+        "langfuse_session_id": thread_id,
+        "langfuse_tags": ["procurement", "deepagent"],
+    }
 
     async def flush_trace(interrupted: bool):
         """补齐未推送的增量 → 压实 → 发 trace_end → 落库"""
@@ -260,7 +276,7 @@ async def stream_chat_response(
                         if phase != "reviewing":
                             phase = "reviewing"
                             last_phase = "reviewing"
-                            yield sse_event("phase", {"phase": "reviewing", "label": "🔍 审查中"})
+                            yield sse_event("phase", {"phase": "reviewing", "label": "审查中"})
                     elif ev_type == "rubric_evaluation_end":
                         # 评审器产出结构化判定 → 发射 review_result 事件
                         review_data = {

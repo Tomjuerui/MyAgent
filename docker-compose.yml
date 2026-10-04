@@ -119,6 +119,11 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:?请先在项目根目录 .env 中配置 LLM_API_KEY}
       # 仅 src/agent/tools/web_search.py 联网搜索需要；不用该工具可留空
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      # Langfuse 可观测旁路（可选）：key 为空时 backend 自动跳过采集
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      # Langfuse 自托管看板宿主端口 3001（见 Langfuse 仓库 docker-compose.override.yml）
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://host.docker.internal:3001}
       MONGODB_URI: mongodb://mongo:27017
       MCP_SERVER_URL: http://mcp-server:9000
       WEBINTEL_MCP_URL: http://webintel-mcp:9002/mcp
