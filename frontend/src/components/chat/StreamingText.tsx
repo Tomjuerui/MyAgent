@@ -7,7 +7,7 @@ interface Props {
   text: string;
 }
 
-const MIN_INTERVAL_MS = 70;
+const MIN_INTERVAL_MS = 150;
 
 /**
  * 流式渲染：与结束态共用同一条 Markdown 渲染路径，只是对刷新频率做节流。

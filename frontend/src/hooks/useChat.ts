@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { ChatMessage, ToolCallInfo, SSEEvent, InterruptData, TodoItem, TraceSpan, TraceStats, TraceRunSummary } from "@/lib/types";
 import { streamChat, resumeChat, fetchTrace, fetchTraceRuns } from "@/lib/api";
@@ -10,6 +10,19 @@ import { useSSE } from "./useSSE";
 const USER_ID = "user-001";
 const USERNAME = "采购管理员";
 
+// 会话 ID 持久化：URL query（?thread=xxx），刷新/回退/分享都能恢复当前会话
+function readThreadFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("thread");
+}
+
+function syncThreadToUrl(threadId: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("thread", threadId);
+  window.history.replaceState(null, "", url.toString());
+}
+
 export type HarnessPhase = "idle" | "thinking" | "planning" | "executing" | "reviewing" | "done";
 
 export function useChat() {
@@ -18,7 +31,9 @@ export function useChat() {
   const [thinking, setThinking] = useState(false);
   const [interrupted, setInterrupted] = useState(false);
   const [interruptData, setInterruptData] = useState<InterruptData | null>(null);
-  const [threadId, setThreadId] = useState<string>(uuidv4());
+  // 首次挂载时 URL 里是否已带 thread（决定要不要做恢复加载），只读一次
+  const [initialThreadFromUrl] = useState<string | null>(() => readThreadFromUrl());
+  const [threadId, setThreadId] = useState<string>(() => initialThreadFromUrl ?? uuidv4());
   const [error, setError] = useState<string | null>(null);
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [todoVisible, setTodoVisible] = useState(false);
@@ -34,6 +49,11 @@ export function useChat() {
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
 
+  // threadId 变化即回写 URL，保证刷新/回退/分享都指向同一会话
+  useEffect(() => {
+    syncThreadToUrl(threadId);
+  }, [threadId]);
+
   const assistantMsgRef = useRef<string>("");
   const toolCallsRef = useRef<ToolCallInfo[]>([]);
   const currentToolIdRef = useRef<string>("");
@@ -41,6 +61,8 @@ export function useChat() {
   // 本轮暂停中累积的 LangGraph Interrupt.id（并发子 Agent 可能同时挂起多个 interrupt，
   // 恢复时须拼成 {interrupt_id: {"decisions":[...]}} 映射）
   const pendingInterruptIdsRef = useRef<string[]>([]);
+  // token 高频到达时的批量提交定时器：不逐 token setMessages，避免每个 token 整表重渲染
+  const assistantFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetAssistantState = useCallback(() => {
     assistantMsgRef.current = "";
@@ -49,6 +71,7 @@ export function useChat() {
   }, []);
 
   const updateAssistantMessage = useCallback(() => {
+    if (!assistantMsgRef.current && toolCallsRef.current.length === 0) return;
     setMessages((prev) => {
       const lastMsg = prev[prev.length - 1];
       const updated: ChatMessage = {
@@ -65,12 +88,28 @@ export function useChat() {
     });
   }, []);
 
+  const scheduleAssistantUpdate = useCallback(() => {
+    if (assistantFlushTimerRef.current != null) return;
+    assistantFlushTimerRef.current = setTimeout(() => {
+      assistantFlushTimerRef.current = null;
+      updateAssistantMessage();
+    }, 50);
+  }, [updateAssistantMessage]);
+
+  const flushAssistantUpdate = useCallback(() => {
+    if (assistantFlushTimerRef.current != null) {
+      clearTimeout(assistantFlushTimerRef.current);
+      assistantFlushTimerRef.current = null;
+    }
+    updateAssistantMessage();
+  }, [updateAssistantMessage]);
+
   const handleEvent = useCallback(
     (event: SSEEvent) => {
       switch (event.type) {
         case "token":
           assistantMsgRef.current += event.content;
-          updateAssistantMessage();
+          scheduleAssistantUpdate();
           break;
 
         case "tool_start": {
@@ -204,6 +243,8 @@ export function useChat() {
           break;
 
         case "done":
+          // 把批量定时器里尚未提交的 token 立即落定，避免 streaming 已结束但内容滞后
+          flushAssistantUpdate();
           setStreaming(false);
           setPhase("done");
           setPhaseLabel("✅ 完成");
@@ -235,7 +276,7 @@ export function useChat() {
           break;
       }
     },
-    [updateAssistantMessage]
+    [updateAssistantMessage, scheduleAssistantUpdate, flushAssistantUpdate]
   );
 
   const { start, abort } = useSSE({
@@ -458,6 +499,7 @@ export function useChat() {
     interrupted,
     interruptData,
     threadId,
+    initialThreadFromUrl,
     error,
     dismissError,
     todoItems,
