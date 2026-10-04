@@ -33,6 +33,9 @@ next-env.d.ts
 src/download/
 src/mock_erp/erp.db
 
+# ============ 用户画像（运行时用户数据） ============
+data/
+
 # ============ 本地文档（不随仓库提交） ============
 .workbuddy/
 docs/

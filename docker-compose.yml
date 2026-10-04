@@ -135,6 +135,7 @@ services:
       # 兄弟容器模式：backend 内的 Docker SDK 通过宿主 daemon 管理沙箱
       - /var/run/docker.sock:/var/run/docker.sock
       - download-data:/app/src/download
+      - profile-data:/app/data
     depends_on:
       mongo:
         condition: service_healthy
@@ -197,3 +198,4 @@ volumes:
   mongo-data:
   download-data:
   crawl-artifacts:
+  profile-data:
