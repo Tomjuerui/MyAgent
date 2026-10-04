@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 # 确保项目根目录在 path 中
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -54,17 +54,35 @@ app.include_router(history_router)
 DOWNLOAD_DIR = Path(__file__).resolve().parent.parent / "download"
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
+# 只有位图按 inline 返回，便于 <img> 直接渲染；
+# 刻意不含 SVG：同源返回的 SVG 可携带脚本，属于 XSS 面。
+INLINE_IMAGE_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
 
 @app.get("/api/download/{filename}")
 async def download_file(filename: str):
-    """提供生成文件（图表PNG等）的HTTP下载"""
-    file_path = DOWNLOAD_DIR / filename
-    if not file_path.exists() or not file_path.is_file():
-        from fastapi import HTTPException
+    """提供生成文件（图表 PNG / 报告 等）的 HTTP 访问。
+
+    图片以正确 media type 内联返回，其余按附件下载。
+    """
+    base = DOWNLOAD_DIR.resolve()
+    target = (base / filename).resolve()
+    # 防目录穿越：解析后必须直接位于下载目录内（含符号链接逃逸）
+    if target.parent != base or not target.is_file():
         raise HTTPException(status_code=404, detail=f"文件不存在: {filename}")
+
+    media_type = INLINE_IMAGE_TYPES.get(target.suffix.lower())
+    if media_type:
+        return FileResponse(path=str(target), media_type=media_type)
     return FileResponse(
-        path=str(file_path),
-        filename=filename,
+        path=str(target),
+        filename=target.name,
         media_type="application/octet-stream",
     )
 
