@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/sidebar/Sidebar";
 import ChatArea from "@/components/chat/ChatArea";
 import { useChat } from "@/hooks/useChat";
@@ -12,6 +12,7 @@ export default function Home() {
   const chat = useChat();
   const history = useHistory();
   const wasStreaming = useRef(false);
+  const [loadingThread, setLoadingThread] = useState(false);
 
   // 聊天结束后自动刷新历史列表
   useEffect(() => {
@@ -25,6 +26,7 @@ export default function Home() {
 
   const handleSelectThread = useCallback(
     async (threadId: string) => {
+      setLoadingThread(true);
       try {
         const data = await getMessages(threadId);
         const msgs: ChatMessage[] = (data.messages || data || []).map(
@@ -38,8 +40,11 @@ export default function Home() {
           })
         );
         chat.loadThread(threadId, msgs);
-      } catch {
-        // 加载失败静默处理
+      } catch (err) {
+        // 之前是静默处理，导致切会话失败时界面毫无反馈
+        console.error("加载会话消息失败", threadId, err);
+      } finally {
+        setLoadingThread(false);
       }
     },
     [chat]
@@ -71,7 +76,7 @@ export default function Home() {
   }, [chat]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-[100dvh] overflow-hidden">
       <Sidebar
         conversations={history.conversations}
         activeThreadId={chat.threadId}
@@ -96,6 +101,10 @@ export default function Home() {
         traceStats={chat.traceStats}
         traceRuns={chat.traceRuns}
         activeRunId={chat.activeRunId}
+        traceBoundaries={chat.traceBoundaries}
+        error={chat.error}
+        loadingThread={loadingThread}
+        onDismissError={chat.dismissError}
         onSelectTraceRun={chat.selectTraceRun}
         onSend={chat.sendMessage}
         onSupplement={handleSupplement}

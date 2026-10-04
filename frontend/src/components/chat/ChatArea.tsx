@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChatMessage, InterruptData, TodoItem, TraceRunSummary, TraceSpan, TraceStats } from "@/lib/types";
+import { RunBoundary } from "@/lib/timeline-mode";
 import MessageList from "./MessageList";
 import WelcomeScreen from "./WelcomeScreen";
 import InputBar from "./InputBar";
@@ -9,6 +10,7 @@ import ThinkingIndicator from "./ThinkingIndicator";
 import TodoListPanel from "./TodoListPanel";
 import HarnessPhaseBar from "./HarnessPhaseBar";
 import ToolCallToggle from "@/components/common/ToolCallToggle";
+import ErrorBanner from "@/components/common/ErrorBanner";
 import InterruptBanner from "@/components/interrupt/InterruptBanner";
 import TracePanel from "@/components/trace/TracePanel";
 
@@ -27,6 +29,10 @@ interface Props {
   traceStats: TraceStats | null;
   traceRuns: TraceRunSummary[];
   activeRunId: string | null;
+  traceBoundaries: RunBoundary[];
+  error: string | null;
+  loadingThread: boolean;
+  onDismissError: () => void;
   onSelectTraceRun: (runId: string | null) => void;
   onSend: (msg: string) => void;
   onSupplement: (text: string) => void;
@@ -49,6 +55,10 @@ export default function ChatArea({
   traceStats,
   traceRuns,
   activeRunId,
+  traceBoundaries,
+  error,
+  loadingThread,
+  onDismissError,
   onSelectTraceRun,
   onSend,
   onSupplement,
@@ -57,24 +67,26 @@ export default function ChatArea({
 }: Props) {
   const [showToolCalls, setShowToolCalls] = useState(true);
   const [showTrace, setShowTrace] = useState(false);
-  const hasMessages = messages.length > 0;
+  const hasContent = messages.length > 0 || loadingThread;
 
   return (
-    <main className="flex-1 flex flex-col h-screen bg-surface-050 min-w-0">
+    <main className="relative flex h-full min-w-0 flex-1 flex-col bg-surface-000">
       {/* 顶部工具栏 */}
-      {hasMessages && (
-        <div className="flex items-center justify-between px-8 py-2 border-b border-line-200 bg-surface-000">
-          <span className="ic-label">采购控制台</span>
-          <div className="flex items-center gap-3">
+      {hasContent && (
+        <div className="flex items-center justify-between border-b border-line-200 px-6 py-2">
+          <span className="ic-label">技术情报控制台</span>
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setShowTrace((v) => !v)}
               className={
-                showTrace ? "ic-btn px-2 py-1 text-[11px]" : "ic-btn-ghost px-2 py-1 text-[11px]"
+                showTrace
+                  ? "ic-btn px-2.5 py-1 text-[12px]"
+                  : "ic-btn-ghost px-2.5 py-1 text-[12px]"
               }
             >
               执行链路
               {traceSpans.length > 0 && (
-                <span className="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">
+                <span className="ic-tag ic-tag-signal px-1.5 py-0 text-[10px]">
                   {traceSpans.length}
                 </span>
               )}
@@ -84,25 +96,29 @@ export default function ChatArea({
         </div>
       )}
 
-      {/* TODO 任务列表 - 最顶层悬浮（在 main 层级，不被任何父级影响） */}
+      {/* 错误提示 — 之前 error 状态被吞掉，失败时界面毫无反馈 */}
+      {error && <ErrorBanner message={error} onDismiss={onDismissError} />}
+
+      {/* TODO 任务列表 */}
       <TodoListPanel items={todoItems} visible={todoVisible} />
 
       {/* Harness 阶段指示器 */}
       <HarnessPhaseBar phase={phase} phaseLabel={phaseLabel} visible={streaming || phase === "done"} />
 
       {/* 消息区域 / 欢迎页 */}
-      {hasMessages ? (
+      {hasContent ? (
         <MessageList
           messages={messages}
           streaming={streaming}
           showToolCalls={showToolCalls}
+          loading={loadingThread}
         />
       ) : (
         <WelcomeScreen onPromptClick={onSend} />
       )}
 
       {/* 深度思考动画 */}
-      {thinking && <ThinkingIndicator visible={thinking} />}
+      {thinking && <ThinkingIndicator visible={thinking} label={phaseLabel} />}
 
       {/* 中断交互区 */}
       {interrupted && interruptData && (
@@ -125,6 +141,7 @@ export default function ChatArea({
           streaming={streaming}
           runs={traceRuns}
           activeRunId={activeRunId}
+          boundaries={traceBoundaries}
           onSelectRun={onSelectTraceRun}
           onClose={() => setShowTrace(false)}
         />

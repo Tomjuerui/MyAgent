@@ -14,8 +14,8 @@ export function useHistory() {
     try {
       const data = await getConversations();
       setConversations(data);
-    } catch {
-      // 静默失败
+    } catch (err) {
+      console.error("加载会话列表失败", err);
     } finally {
       setLoading(false);
     }
@@ -41,8 +41,8 @@ export function useHistory() {
         setConversations((prev) =>
           prev.filter((c) => c.thread_id !== threadId)
         );
-      } catch {
-        // 静默失败
+      } catch (err) {
+        console.error("删除会话失败", threadId, err);
       }
     },
     []

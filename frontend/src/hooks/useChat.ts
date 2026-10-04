@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { ChatMessage, ToolCallInfo, SSEEvent, InterruptData, TodoItem, TraceSpan, TraceStats, TraceRunSummary } from "@/lib/types";
 import { streamChat, resumeChat, fetchTrace, fetchTraceRuns } from "@/lib/api";
+import { ALL_RUNS, RunBoundary } from "@/lib/timeline-mode";
 import { useSSE } from "./useSSE";
 
 const USER_ID = "user-001";
@@ -28,6 +29,7 @@ export function useChat() {
   const [traceStats, setTraceStats] = useState<TraceStats | null>(null);
   const [traceRuns, setTraceRuns] = useState<TraceRunSummary[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [traceBoundaries, setTraceBoundaries] = useState<RunBoundary[]>([]);
 
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
@@ -263,6 +265,7 @@ export function useChat() {
       // 新一轮提问 → 清空上一轮链路；resume 走的路径不清（审批恢复属于同一轮）
       setTraceSpans([]);
       setTraceStats(null);
+      setTraceBoundaries([]);
       setActiveRunId(null);
 
       const userMsg: ChatMessage = {
@@ -343,6 +346,8 @@ export function useChat() {
     [resumeWith]
   );
 
+  const dismissError = useCallback(() => setError(null), []);
+
   const newChat = useCallback(() => {
     abort();
     setMessages([]);
@@ -358,6 +363,7 @@ export function useChat() {
     setTraceSpans([]);
     setTraceStats(null);
     setTraceRuns([]);
+    setTraceBoundaries([]);
     setActiveRunId(null);
   }, [abort, resetAssistantState]);
 
@@ -375,6 +381,7 @@ export function useChat() {
       setTraceSpans([]);
       setTraceStats(null);
       setTraceRuns([]);
+      setTraceBoundaries([]);
       setActiveRunId(null);
       // 历史会话的链路已落库：并行拉「run 列表」和「最近一次 run 的 spans」
       fetchTraceRuns(id)
@@ -399,9 +406,38 @@ export function useChat() {
     (runId: string | null) => {
       const id = threadIdRef.current;
       setActiveRunId(runId);
+      setTraceBoundaries([]);
       if (!runId) {
         setTraceSpans([]);
         setTraceStats(null);
+        return;
+      }
+      if (runId === ALL_RUNS) {
+        // 连续视图：把各轮 spans 拼成一条绝对时间轴（start_ms 本就是 epoch ms，天然对齐）
+        fetchTraceRuns(id)
+          .then(async (runs) => {
+            if (threadIdRef.current !== id) return;
+            const chrono = [...runs].sort(
+              (a, b) => Date.parse(a.started_at) - Date.parse(b.started_at)
+            );
+            const traces = await Promise.all(
+              chrono.map((r) => fetchTrace(id, r.run_id).catch(() => null))
+            );
+            if (threadIdRef.current !== id) return;
+            const allSpans: TraceSpan[] = [];
+            const bounds: RunBoundary[] = [];
+            chrono.forEach((r, i) => {
+              const t = traces[i];
+              if (t?.spans) allSpans.push(...t.spans);
+              const at = Date.parse(r.started_at);
+              if (Number.isFinite(at)) bounds.push({ label: `第 ${i + 1} 轮`, startMs: at });
+            });
+            allSpans.sort((a, b) => a.start_ms - b.start_ms || a.seq - b.seq);
+            setTraceSpans(allSpans);
+            setTraceStats(null);
+            setTraceBoundaries(bounds);
+          })
+          .catch(() => {});
         return;
       }
       fetchTrace(id, runId)
@@ -423,6 +459,7 @@ export function useChat() {
     interruptData,
     threadId,
     error,
+    dismissError,
     todoItems,
     todoVisible,
     pendingQueue,
@@ -432,6 +469,7 @@ export function useChat() {
     traceStats,
     traceRuns,
     activeRunId,
+    traceBoundaries,
     selectTraceRun,
     sendMessage,
     resumeWith,
