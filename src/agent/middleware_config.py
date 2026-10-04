@@ -38,7 +38,7 @@ def get_analyst_middleware(user_context: ProcurementContext | None = None) -> li
     - 需要感知用户偏好 → ContextInjectionMiddleware
     - 沙箱工具调用频繁 → CircuitBreakerMiddleware
     """
-    context = user_context or ProcurementContext(username="采购分析师")
+    context = user_context or ProcurementContext(username="情报分析师")
 
     return [
         # 1. 对话压缩（分析任务数据量大，容易上下文溢出）
@@ -67,7 +67,7 @@ def get_order_middleware(user_context: ProcurementContext | None = None) -> list
     - 需要用户身份确认 → ContextInjectionMiddleware
     - 沙箱操作较少但关键 → CircuitBreakerMiddleware
     """
-    context = user_context or ProcurementContext(username="采购订单专员")
+    context = user_context or ProcurementContext(username="情报分析师")
 
     return [
         # 1. 对话压缩（订单审批多轮对话）

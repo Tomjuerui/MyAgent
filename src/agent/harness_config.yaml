@@ -7,13 +7,13 @@
 # 阶段定义（顺序即流转顺序，label 用于前端展示）
 phases:
   - name: planning
-    label: "📝 规划中"
+    label: "规划中"
   - name: executing
-    label: "⚙️ 执行中"
+    label: "执行中"
   - name: reviewing
-    label: "🔍 审查中"
+    label: "审查中"
   - name: result
-    label: "📊 已完成"
+    label: "已完成"
 
 # 评审器配置（由 RubricMiddleware 消费）
 review:

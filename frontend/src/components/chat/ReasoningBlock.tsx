@@ -30,7 +30,7 @@ export default function ReasoningBlock({ reasoning, streaming }: Props) {
     }
   }, [reasoning, expanded, streaming]);
 
-  const label = streaming ? "💭 思考中…" : "💭 思考过程";
+  const label = streaming ? "思考中…" : "思考过程";
 
   return (
     <div className="mb-3 overflow-hidden rounded-xl border border-line-200 bg-surface-050">

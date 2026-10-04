@@ -27,13 +27,13 @@ async def lifespan(app: FastAPI):
     web_logger.info("Starting ERP Agent Web Server...")
     yield
     # Shutdown
-    web_logger.info("Shutting down ERP Agent Web Server...")
+    web_logger.info("Shutting down DevEco Intelligence Web Server...")
     await close_mongo_client()
 
 
 app = FastAPI(
-    title="DeepAgent 智能采购助手",
-    description="基于 Harness Engineering 架构的电子元器件采购智能助手 API",
+    title="DevEco Intelligence 技术情报智能体",
+    description="开源开发者生态与技术趋势洞察智能体 API（Harness Engineering 架构）",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -91,7 +91,7 @@ async def download_file(filename: str):
 
 @app.get("/")
 async def root():
-    return {"message": "DeepAgent 智能采购助手 API", "version": "1.0.0"}
+    return {"message": "DevEco Intelligence 技术情报智能体 API", "version": "1.0.0"}
 
 
 @app.get("/health")
