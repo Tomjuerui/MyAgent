@@ -78,8 +78,8 @@ export default function CapabilityIcon({ name, size = 16 }: Props) {
       fill="none"
       stroke="currentColor"
       strokeWidth={1.5}
-      strokeLinecap="square"
-      strokeLinejoin="miter"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
       className="shrink-0"
     >
