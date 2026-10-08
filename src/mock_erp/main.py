@@ -521,6 +521,33 @@ def order_update_status(order_id: int, status: int = Query(...)):
         )
     with db_tx() as conn:
         conn.execute("UPDATE purchase_orders SET status = ? WHERE id = ?", (status, order_id))
+        # 收货过账：推进到「已收货(3)」时对订单明细逐条入库（采购=买入，收货即库存增加）。
+        # 与状态更新同一事务：任一明细入库失败则整体回滚，避免"状态已收货但库存未过账"。
+        if status == 3:
+            details = conn.execute(
+                "SELECT part_id, quantity FROM order_details WHERE order_id = ?",
+                (order_id,),
+            ).fetchall()
+            for d in details:
+                part_id, qty = d["part_id"], d["quantity"]
+                part = conn.execute(
+                    "SELECT stock_warning_value FROM parts WHERE id = ?", (part_id,)
+                ).fetchone()
+                inv = conn.execute(
+                    "SELECT id FROM inventory WHERE part_id = ?", (part_id,)
+                ).fetchone()
+                if inv:
+                    conn.execute(
+                        "UPDATE inventory SET current_quantity = current_quantity + ?, "
+                        "updated_at = datetime('now', 'localtime') WHERE part_id = ?",
+                        (qty, part_id),
+                    )
+                else:
+                    conn.execute(
+                        "INSERT INTO inventory (part_id, current_quantity, safety_stock, warehouse_location) "
+                        "VALUES (?, ?, ?, ?)",
+                        (part_id, qty, part["stock_warning_value"] if part else 0, "A-01-01"),
+                    )
     return ok(order_dict(query_one("SELECT * FROM purchase_orders WHERE id = ?", (order_id,))))
 
 
