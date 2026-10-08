@@ -198,6 +198,8 @@ services:
     environment:
       # 服务端 /api 反向代理目标（浏览器侧直连 localhost:8000 不变）
       BACKEND_ORIGIN: http://backend:8000
+      # ERP 数据台反代目标（容器内服务名 mock-erp）
+      ERP_ORIGIN: http://mock-erp:8081
     ports:
       - "3000:3000"
     depends_on:

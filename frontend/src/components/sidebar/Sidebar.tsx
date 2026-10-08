@@ -1,6 +1,7 @@
 "use client";
 
 import { Settings } from "lucide-react";
+import Link from "next/link";
 import { Conversation } from "@/lib/types";
 import { BRAND } from "@/lib/brand";
 import Logo from "./Logo";
@@ -36,6 +37,13 @@ export default function Sidebar({
       style={{ width: "var(--shell-sidebar)" }}
     >
       <Logo />
+      <Link
+        href="/erp"
+        target="_blank"
+        className="mx-3 mb-2 flex items-center justify-center gap-1.5 rounded-md bg-surface-100 px-3 py-2 text-sm font-medium hover:bg-surface-200"
+      >
+        ERP 数据台
+      </Link>
       <NewChatButton onClick={onNewChat} />
       <SearchBox value={searchQuery} onChange={onSearchChange} />
       <HistoryList
