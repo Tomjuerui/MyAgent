@@ -75,7 +75,15 @@ export default function ChatArea({
   const hasContent = messages.length > 0 || loadingThread;
 
   return (
-    <main className="ic-atmosphere relative flex h-full min-w-0 flex-1 flex-col">
+    // 有内容（消息/研报）时用纯 surface-000 铺底：ic-atmosphere 那两层蓝色光晕压在长表格和
+    // 行内代码的浅底色上会显得斑驳，读报告时只要干净白底；空态/欢迎页保留光晕做纵深。
+    <main
+      className={
+        hasContent
+          ? "relative flex h-full min-w-0 flex-1 flex-col bg-surface-000"
+          : "ic-atmosphere relative flex h-full min-w-0 flex-1 flex-col"
+      }
+    >
       {/* 顶部工具栏：去掉实心横线与「控制台」标签，只留悬浮控件 */}
       {hasContent && (
         <div className="flex items-center justify-end gap-2 px-6 py-2">
