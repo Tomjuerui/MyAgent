@@ -191,11 +191,39 @@ class CustomOpenSandbox(BaseSandbox):
         return resp.output
 
     def read_file_bytes(self, path: str) -> bytes:
-        """读取沙箱内文件内容（二进制，base64 传输）"""
-        resp = self.execute(f"base64 '{path}'")
-        if resp.exit_code != 0:
-            raise FileNotFoundError(f"Cannot read file: {path} — {resp.output}")
-        return base64.b64decode(resp.output.strip())
+        """读取沙箱内文件内容（二进制，分块 base64 传输）。
+
+        单次 base64 会被 execute() 的 100KB 输出截断打爆（≥74KB 的 PNG 就会
+        出现 base64 长度错位），这里按 48KB 原文分块（→ 64KB base64，安全线内）。
+        """
+        size_resp = self.execute(f"stat -c %s '{path}'")
+        total = 0
+        try:
+            total = int(size_resp.output.strip())
+        except ValueError:
+            pass
+        if total <= 0:
+            # 文件不存在或 stat 失败：走单次 base64 拿到真实报错
+            resp = self.execute(f"base64 '{path}'")
+            if resp.exit_code != 0:
+                raise FileNotFoundError(f"Cannot read file: {path} — {resp.output}")
+            return base64.b64decode(resp.output.strip())
+
+        chunks: list[bytes] = []
+        offset = 0
+        chunk_size = 48 * 1024
+        while offset < total:
+            resp = self.execute(
+                f"dd if='{path}' bs=1 skip={offset} count={chunk_size} 2>/dev/null | base64 -w0"
+            )
+            if resp.exit_code != 0 or not resp.output.strip():
+                break
+            data = base64.b64decode(resp.output.strip())
+            if not data:
+                break
+            chunks.append(data)
+            offset += len(data)
+        return b"".join(chunks)
 
     def write_file(self, path: str, content: str | bytes) -> str:
         """写入内容到沙箱内文件（自动创建父目录）"""
@@ -404,16 +432,21 @@ class CustomOpenSandbox(BaseSandbox):
     # ============================================================
 
     def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
-        """从容器中下载文件（base64 传输）"""
+        """从容器中下载文件（分块 base64 传输，走 read_file_bytes 避免截断）。
+
+        注意：文件不存在必须返回 error="file_not_found"（而非抛异常），
+        deepagents 的 MemoryMiddleware 依赖该契约优雅跳过缺失的 memory 源。
+        """
         results = []
         for path in paths:
             try:
-                resp = self.execute(f"base64 '{path}'")
-                if resp.exit_code == 0 and resp.output.strip():
-                    content = base64.b64decode(resp.output.strip())
+                content = self.read_file_bytes(path)
+                if content:
                     results.append(FileDownloadResponse(path=path, content=content, error=None))
                 else:
                     results.append(FileDownloadResponse(path=path, content=None, error="file_not_found"))
+            except FileNotFoundError:
+                results.append(FileDownloadResponse(path=path, content=None, error="file_not_found"))
             except Exception as e:
                 results.append(FileDownloadResponse(path=path, content=None, error=str(e)))
         return results
