@@ -18,6 +18,7 @@ import re
 import json
 import csv
 import io
+import hashlib
 from pathlib import Path
 from datetime import datetime
 from langchain_core.tools import tool
@@ -66,6 +67,17 @@ def repair_atx_headings(md: str) -> str:
     return "\n".join(lines) if changed else md
 
 
+def _doc_digest(title: str, fmt: str, content: str) -> str:
+    """按 (标题, 格式, 内容) 算稳定摘要，作为文件名的一部分。
+
+    用摘要替代时间戳命名：同一份内容重复生成时落到同一个文件名，从而可复用，
+    不再每次落一份新文件 + 新下载链接（实测一次研报任务 generate_document 被调 4 次）。
+    """
+    h = hashlib.sha1()
+    h.update(f"{fmt}\x00{title}\x00{content}".encode("utf-8", "replace"))
+    return h.hexdigest()[:12]
+
+
 @tool
 def generate_document(
     title: str,
@@ -91,13 +103,30 @@ def generate_document(
     Returns:
         文件路径和下载链接
     """
-    # 生成文件名
-    if not filename:
-        safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in title[:30])
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{safe_title}_{timestamp}"
-
     format = format.lower().strip()
+
+    # 生成文件名：用内容摘要（而非时间戳）→ 同 (标题,格式,内容) 得到同名文件，可复用
+    auto_named = not filename
+    if auto_named:
+        safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in title[:30])
+        filename = f"{safe_title}_{_doc_digest(title, format, content)}"
+
+    # 仅对「自动命名（含内容摘要）」复用：同内容已生成过就直接返回，不再落新文件 + 新链接。
+    # 显式传 filename 的调用（模型自定名）不复用，避免不同内容撞名误复用。
+    if auto_named:
+        ext = {"md": "md", "markdown": "md", "html": "html",
+               "csv": "csv", "json": "json", "txt": "txt", "text": "txt"}.get(format, "txt")
+        existing = LOCAL_DOWNLOAD_DIR / f"{filename}.{ext}"
+        try:
+            if existing.exists() and existing.stat().st_size > 0:
+                return (
+                    f"✅ 文档已存在（复用同内容文档，未重复生成）\n"
+                    f"标题: {title}\n"
+                    f"格式: {format}\n"
+                    f"下载链接: /api/download/{filename}.{ext}"
+                )
+        except OSError:
+            pass
 
     try:
         if format == "markdown" or format == "md":
@@ -335,27 +364,24 @@ def generate_table_report(
     if not isinstance(header_list, list) or not isinstance(row_list, list):
         return "错误: headers 必须是一维数组，rows 必须是二维数组"
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in title[:30])
-    base_name = f"{safe_title}_{timestamp}"
-
     format = format.lower().strip()
 
+    # 不传 filename：交给 generate_document 用内容摘要命名 → 同内容可复用，不再每次新文件
     if format in ("markdown", "md"):
         content = _build_md_table(header_list, row_list)
         return generate_document.invoke({
-            "title": title, "content": content, "format": "markdown", "filename": base_name
+            "title": title, "content": content, "format": "markdown"
         })
     elif format == "html":
         content = _build_html_table(header_list, row_list)
         return generate_document.invoke({
-            "title": title, "content": content, "format": "html", "filename": base_name
+            "title": title, "content": content, "format": "html"
         })
     elif format == "csv":
         data = [dict(zip(header_list, row)) for row in row_list]
         content = json.dumps(data, ensure_ascii=False)
         return generate_document.invoke({
-            "title": title, "content": content, "format": "csv", "filename": base_name
+            "title": title, "content": content, "format": "csv"
         })
     else:
         return f"不支持的格式: {format}。支持: markdown, html, csv"
