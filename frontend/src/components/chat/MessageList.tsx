@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { ChatMessage } from "@/lib/types";
+import { ReviewItem } from "@/hooks/useChat";
 import MessageBubble from "./MessageBubble";
+import ReviewCard from "./ReviewCard";
 
 interface Props {
   messages: ChatMessage[];
   streaming: boolean;
   showToolCalls: boolean;
   loading?: boolean;
+  reviewItems?: ReviewItem[];
 }
 
 function MessagesSkeleton() {
@@ -36,6 +39,7 @@ export default function MessageList({
   streaming,
   showToolCalls,
   loading = false,
+  reviewItems = [],
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -92,6 +96,9 @@ export default function MessageList({
               }
               showToolCalls={showToolCalls}
             />
+          ))}
+          {reviewItems.map((item, i) => (
+            <ReviewCard key={i} item={item} />
           ))}
           <div ref={bottomRef} />
         </div>

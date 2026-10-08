@@ -22,6 +22,7 @@ KIND_GRAPH = "graph"  # LangGraph 顶层执行
 KIND_NODE = "node"    # 图节点（含子图内的节点）
 KIND_LLM = "llm"      # 模型调用
 KIND_TOOL = "tool"    # 工具调用
+KIND_REVIEW = "review"  # Harness 评审器一轮 grading（chat.py 在 custom 流手动开/关 span）
 
 # ===== span 状态 =====
 STATUS_RUNNING = "running"

@@ -17,7 +17,7 @@ const PHASE_ORDER = PHASES.map((p) => p.key);
  * 原先是「整条 border-b + 5 个带图标的胶囊」，两条横线把画面切碎，
  * 现在只留进度本身，阶段个数靠分段数体现，名称挂在 title 上。
  */
-export default function HarnessPhaseBar({ phase, phaseLabel, visible }: Props) {
+export default function HarnessPhaseBar({ phase, phaseLabel, progressNote, visible }: Props) {
   if (!visible || phase === "idle") return null;
 
   const currentIdx = PHASE_ORDER.indexOf(phase);
@@ -51,6 +51,11 @@ export default function HarnessPhaseBar({ phase, phaseLabel, visible }: Props) {
         <span className="shrink-0 text-[12px] text-ink-400">
           {phaseLabel || current?.label || ""}
         </span>
+        {progressNote && (
+          <span className="shrink-0 animate-pulse text-[12px] tabular-nums text-signal/80">
+            {progressNote}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -59,5 +64,6 @@ export default function HarnessPhaseBar({ phase, phaseLabel, visible }: Props) {
 interface Props {
   phase: string;
   phaseLabel: string;
+  progressNote?: string;
   visible: boolean;
 }

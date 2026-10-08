@@ -26,6 +26,7 @@ from .models import (
     KIND_GRAPH,
     KIND_LLM,
     KIND_NODE,
+    KIND_REVIEW,
     KIND_RUN,
     KIND_TOOL,
     STATUS_ERROR,
@@ -40,6 +41,7 @@ from .models import (
 RAW_CHAIN = "chain"
 RAW_LLM = "llm"
 RAW_TOOL = "tool"
+RAW_REVIEW = "review"
 
 
 class TraceCollector:
@@ -151,6 +153,10 @@ class TraceCollector:
             retain = True
         elif kind == RAW_TOOL:
             eff_kind = KIND_TOOL
+            retain = True
+        elif kind == RAW_REVIEW:
+            # Harness 评审轮：chat.py 在 custom 流里手动开/关，非 callback 来源
+            eff_kind = KIND_REVIEW
             retain = True
         else:  # RAW_CHAIN
             if parent.span_id == self.root_id:

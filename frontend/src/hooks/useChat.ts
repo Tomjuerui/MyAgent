@@ -26,6 +26,14 @@ function syncThreadToUrl(threadId: string) {
 
 export type HarnessPhase = "idle" | "thinking" | "planning" | "executing" | "reviewing" | "done";
 
+// 评审器（RubricMiddleware）一轮评审的展示数据；review_result 事件每轮一条
+export interface ReviewItem {
+  iteration: number;
+  verdict: string;
+  explanation: string;
+  criteria: { passed: boolean; criterion: string; explanation?: string }[];
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
@@ -40,6 +48,9 @@ export function useChat() {
   const [todoVisible, setTodoVisible] = useState(false);
   const [phase, setPhase] = useState<HarnessPhase>("idle");
   const [phaseLabel, setPhaseLabel] = useState("");
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
+  // 静默心跳文案（如「子智能体执行中 · 已 128s」）：父流长静默时后端每 3s 推一次
+  const [progressNote, setProgressNote] = useState<string>("");
   const [pendingQueue, setPendingQueue] = useState<string[]>([]);
   const [traceSpans, setTraceSpans] = useState<TraceSpan[]>([]);
   const [traceStats, setTraceStats] = useState<TraceStats | null>(null);
@@ -203,6 +214,31 @@ export function useChat() {
           setPhaseLabel(event.label);
           break;
 
+        case "review_result": {
+          const criteria = Array.isArray(event.criteria) ? event.criteria : [];
+          setReviewItems((prev) => [
+            ...prev,
+            {
+              iteration: Number(event.iteration || 0),
+              verdict: String(event.verdict || ""),
+              explanation: String(event.explanation || ""),
+              criteria: criteria.map((c) => ({
+                passed: !["fail", "failed", "needs_revision"].includes(
+                  String(c?.passed ?? c?.status ?? "").toLowerCase()
+                ),
+                criterion: String(c?.criterion ?? c?.description ?? ""),
+                explanation: c?.explanation ? String(c.explanation) : undefined,
+              })),
+            },
+          ]);
+          break;
+        }
+
+        case "progress":
+          // 后端静默心跳：展示「当前在跑什么 · 已多久」，避免长任务看起来像卡死
+          setProgressNote(`${event.note} · 已 ${Math.round(event.elapsed_ms / 1000)}s`);
+          break;
+
         case "todo_update": {
           // 新格式：后端直接发送 todos 数组
           if (event.todos && Array.isArray(event.todos)) {
@@ -240,6 +276,22 @@ export function useChat() {
           break;
         }
 
+        case "rework": {
+          // T9 确定性审计未过 → 系统自动返工：以评审卡形式呈现，与 review_result 同区展示
+          setReviewItems((prev) => [
+            ...prev,
+            {
+              iteration: Number(event.round || 0),
+              verdict: "needs_revision",
+              explanation:
+                "确定性审计未通过，系统自动触发返工：" +
+                (Array.isArray(event.missing) ? event.missing.join("；") : ""),
+              criteria: [],
+            },
+          ]);
+          break;
+        }
+
         case "trace":
           // 增量 patch：start 插入，end 就地更新（耗时/token/error 只有 end 才有）
           setTraceSpans((prev) => {
@@ -261,6 +313,7 @@ export function useChat() {
         case "done":
           // 把批量定时器里尚未提交的 token 立即落定，避免 streaming 已结束但内容滞后
           flushAssistantUpdate();
+          setProgressNote("");
           setStreaming(false);
           setPhase("done");
           setPhaseLabel("完成");
@@ -318,6 +371,8 @@ export function useChat() {
       setTodoVisible(false);
       setPhase("idle");
       setPhaseLabel("");
+      setReviewItems([]);
+      setProgressNote("");
       resetAssistantState();
       // 新一轮提问 → 清空上一轮链路；resume 走的路径不清（审批恢复属于同一轮）
       setTraceSpans([]);
@@ -416,6 +471,7 @@ export function useChat() {
     setThreadId(uuidv4());
     setPendingQueue([]);
     pendingQueueRef.current = [];
+    setReviewItems([]);
     resetAssistantState();
     setTraceSpans([]);
     setTraceStats(null);
@@ -434,6 +490,7 @@ export function useChat() {
       setInterruptData(null);
       pendingInterruptIdsRef.current = [];
       setError(null);
+      setReviewItems([]);
       resetAssistantState();
       setTraceSpans([]);
       setTraceStats(null);
@@ -523,6 +580,8 @@ export function useChat() {
     pendingQueue,
     phase,
     phaseLabel,
+    reviewItems,
+    progressNote,
     traceSpans,
     traceStats,
     traceRuns,

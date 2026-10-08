@@ -123,6 +123,8 @@ export default function Home() {
         pendingQueue={chat.pendingQueue}
         phase={chat.phase}
         phaseLabel={chat.phaseLabel}
+        reviewItems={chat.reviewItems}
+        progressNote={chat.progressNote}
         traceSpans={chat.traceSpans}
         traceStats={chat.traceStats}
         traceRuns={chat.traceRuns}

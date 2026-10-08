@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChatMessage, InterruptData, TodoItem, TraceRunSummary, TraceSpan, TraceStats } from "@/lib/types";
 import { RunBoundary } from "@/lib/timeline-mode";
+import { ReviewItem } from "@/hooks/useChat";
 import MessageList from "./MessageList";
 import WelcomeScreen from "./WelcomeScreen";
 import InputBar from "./InputBar";
@@ -25,6 +26,8 @@ interface Props {
   pendingQueue: string[];
   phase: string;
   phaseLabel: string;
+  reviewItems: ReviewItem[];
+  progressNote: string;
   traceSpans: TraceSpan[];
   traceStats: TraceStats | null;
   traceRuns: TraceRunSummary[];
@@ -51,6 +54,8 @@ export default function ChatArea({
   pendingQueue,
   phase,
   phaseLabel,
+  reviewItems,
+  progressNote,
   traceSpans,
   traceStats,
   traceRuns,
@@ -102,7 +107,12 @@ export default function ChatArea({
       <TodoListPanel items={todoItems} visible={todoVisible} />
 
       {/* Harness 阶段指示器 */}
-      <HarnessPhaseBar phase={phase} phaseLabel={phaseLabel} visible={streaming || phase === "done"} />
+      <HarnessPhaseBar
+        phase={phase}
+        phaseLabel={phaseLabel}
+        progressNote={progressNote}
+        visible={streaming || phase === "done"}
+      />
 
       {/* 消息区域 / 欢迎页。空态把输入框交给 hero，标题与输入框才能同屏 */}
       {hasContent ? (
@@ -111,6 +121,7 @@ export default function ChatArea({
           streaming={streaming}
           showToolCalls={showToolCalls}
           loading={loadingThread}
+          reviewItems={reviewItems}
         />
       ) : (
         <WelcomeScreen onPromptClick={onSend}>

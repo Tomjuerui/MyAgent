@@ -78,11 +78,29 @@ export interface SSEPhaseEvent {
   label: string;
 }
 
+// 评审器（RubricMiddleware）结构化判定，后端 chat.py custom 流发出
+export interface SSEReviewResultEvent {
+  type: "review_result";
+  verdict: string;
+  explanation: string;
+  criteria: { criterion?: string; description?: string; passed?: boolean; status?: string; explanation?: string }[];
+  iteration: number;
+}
+
+// T9 确定性审计未过 → 系统触发返工（后端注入返工指令并重跑 astream 前发出）
+export interface SSEReworkEvent {
+  type: "rework";
+  round: number;
+  missing: string[];
+  risk_missing: boolean;
+  chart_missing: string[];
+}
+
 // ===== 执行链路 Trace =====
 export interface TraceSpan {
   span_id: string;
   parent_id: string | null;
-  kind: "run" | "graph" | "node" | "llm" | "tool";
+  kind: "run" | "graph" | "node" | "llm" | "tool" | "review";
   name: string;
   start_ms: number;
   end_ms: number | null;
@@ -131,6 +149,13 @@ export interface SSETraceEndEvent {
   stats: TraceStats;
 }
 
+// 静默心跳：父流长时间无事件（典型：子智能体正在跑）时后端每 3s 发一次
+export interface SSEProgressEvent {
+  type: "progress";
+  elapsed_ms: number;
+  note: string;
+}
+
 export interface TraceRun {
   thread_id: string;
   run_id: string;
@@ -162,8 +187,11 @@ export type SSEEvent =
   | SSEReasoningEvent
   | SSETodoUpdateEvent
   | SSEPhaseEvent
+  | SSEReviewResultEvent
+  | SSEReworkEvent
   | SSETraceEvent
-  | SSETraceEndEvent;
+  | SSETraceEndEvent
+  | SSEProgressEvent;
 
 // ===== 中断数据 =====
 export interface InterruptData {

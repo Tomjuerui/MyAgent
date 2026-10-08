@@ -113,12 +113,13 @@ class AgentLoader:
         return conversations
 
     async def delete_conversation(self, thread_id: str):
-        """删除会话（连带清理展示消息 / harness trace / 执行链路 trace）"""
+        """删除会话（连带清理展示消息 / harness trace / 执行链路 trace / 采集事实）"""
         db = get_db()
         await db.conversations.delete_one({"thread_id": thread_id})
         await db.display_messages.delete_one({"thread_id": thread_id})
         await db.harness_traces.delete_one({"thread_id": thread_id})
         await db.agent_traces.delete_many({"thread_id": thread_id})
+        await db.agent_facts.delete_many({"thread_id": thread_id})
 
     async def save_harness_trace(self, thread_id: str, trace: list):
         """保存 Harness 阶段流转 trace 到 MongoDB（可观测/审计）
@@ -130,6 +131,15 @@ class AgentLoader:
         await db.harness_traces.update_one(
             {"thread_id": thread_id},
             {"$set": {"trace": trace, "updated_at": datetime.now().isoformat()}},
+            upsert=True,
+        )
+
+    async def save_facts(self, thread_id: str, facts: list):
+        """保存本轮采集事实（Harness 确定性审计的信源比对依据）"""
+        db = get_db()
+        await db.agent_facts.update_one(
+            {"thread_id": thread_id},
+            {"$set": {"facts": facts, "updated_at": datetime.now().isoformat()}},
             upsert=True,
         )
 

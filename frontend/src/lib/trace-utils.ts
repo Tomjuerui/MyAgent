@@ -104,6 +104,7 @@ export function barClass(s: { kind: string; status?: string }): string {
   if (s.kind === "llm") return "bg-signal";
   if (s.kind === "tool") return "bg-warn";
   if (s.kind === "node") return "bg-go";
+  if (s.kind === "review") return "bg-go"; // 评审通过绿色；未通过已在上方 error 分支红显
   return "bg-line-400";
 }
 
@@ -119,7 +120,7 @@ export function nameOf(s: TraceSpan): string {
 }
 
 // ===== 类型过滤 =====
-export type KindFilter = "all" | "llm" | "tool" | "node" | "step";
+export type KindFilter = "all" | "llm" | "tool" | "node" | "step" | "review";
 
 export const FILTER_LABEL: Record<KindFilter, string> = {
   all: "全部",
@@ -127,6 +128,7 @@ export const FILTER_LABEL: Record<KindFilter, string> = {
   tool: "工具",
   node: "阶段",
   step: "步骤",
+  review: "评审",
 };
 
 export function matchesFilter(s: TraceSpan, f: KindFilter): boolean {
