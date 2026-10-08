@@ -125,13 +125,16 @@ _DEMO_ARXIV_PAPERS = [
 _DEMO_GITHUB_REPOS = [
     {"full_name": "langchain-ai/langgraph", "html_url": "https://github.com/langchain-ai/langgraph",
      "stargazers_count": 24500, "description": "Build resilient language agents as graphs.",
-     "language": "Python"},
+     "language": "Python", "license": "MIT",
+     "open_issues_count": 412, "pushed_at": "2026-09-25"},
     {"full_name": "crewAIInc/crewAI", "html_url": "https://github.com/crewAIInc/crewAI",
      "stargazers_count": 31000, "description": "Framework for orchestrating role-playing, autonomous AI agents.",
-     "language": "Python"},
+     "language": "Python", "license": "MIT",
+     "open_issues_count": 386, "pushed_at": "2026-09-28"},
     {"full_name": "microsoft/autogen", "html_url": "https://github.com/microsoft/autogen",
      "stargazers_count": 42000, "description": "A programming framework for agentic AI.",
-     "language": "Python"},
+     "language": "Python", "license": "MIT",
+     "open_issues_count": 1290, "pushed_at": "2026-08-10"},
 ]
 
 
@@ -291,7 +294,7 @@ def search_github_repos(query: str, per_page: int = 5) -> str:
         per_page: 返回条数（默认 5，最多 30）
 
     Returns:
-        JSON 字符串：{query, count, repos: [{full_name, html_url, stargazers_count, description, language}]}
+        JSON 字符串：{query, count, repos: [{full_name, html_url, stargazers_count, description, language, license, open_issues_count, pushed_at}]}
     """
     if _demo_mode():
         repos = _DEMO_GITHUB_REPOS[:per_page]
@@ -313,6 +316,9 @@ def search_github_repos(query: str, per_page: int = 5) -> str:
                 "stargazers_count": it.get("stargazers_count", 0),
                 "description": " ".join((it.get("description") or "").split())[:200],
                 "language": it.get("language") or "",
+                "license": (it.get("license") or {}).get("spdx_id") or "",
+                "open_issues_count": it.get("open_issues_count", 0),
+                "pushed_at": (it.get("pushed_at") or "")[:10],
             }
             for it in items if isinstance(it, dict)
         ]
@@ -324,4 +330,62 @@ def search_github_repos(query: str, per_page: int = 5) -> str:
         return _err("github", f"请求异常: {e}")
     except Exception as e:
         agent_logger.error(f"search_github_repos error: {e}")
+        return _err("github", f"解析异常: {e}")
+
+
+@tool
+def fetch_github_repo_meta(owner: str, repo: str) -> str:
+    """查询单个 GitHub 仓库的合规/维护度元信息（API 直连，无需浏览器）。
+
+    用于技术选型白皮书的「安全合规」与「维护度」维度取证：
+    License 类型、归档状态、最近推送时间、Issue 规模。
+
+    Args:
+        owner: 仓库 owner（如 langchain-ai）
+        repo: 仓库名（如 langgraph）
+
+    Returns:
+        JSON 字符串：{full_name, license, stargazers_count, forks_count,
+        open_issues_count, pushed_at, archived, default_branch, html_url}
+    """
+    if _demo_mode():
+        hit = next(
+            (r for r in _DEMO_GITHUB_REPOS if r["full_name"].lower().endswith(f"/{repo.lower()}")),
+            None,
+        )
+        if not hit:
+            return _err("github", f"mock 数据无 {owner}/{repo}")
+        return json.dumps({
+            "full_name": hit["full_name"],
+            "license": hit.get("license", "MIT"),
+            "stargazers_count": hit.get("stargazers_count", 0),
+            "forks_count": 0,
+            "open_issues_count": hit.get("open_issues_count", 0),
+            "pushed_at": hit.get("pushed_at", "2026-01-01"),
+            "archived": False,
+            "default_branch": "main",
+            "html_url": hit.get("html_url", ""),
+        }, ensure_ascii=False)
+
+    url = f"https://api.github.com/repos/{quote(owner)}/{quote(repo)}"
+    try:
+        resp = httpx.get(url, headers=_GH_HEADERS, timeout=_TIMEOUT)
+        if resp.status_code != 200:
+            return _err("github", f"HTTP {resp.status_code}")
+        it = resp.json()
+        return json.dumps({
+            "full_name": it.get("full_name", ""),
+            "license": (it.get("license") or {}).get("spdx_id") or "",
+            "stargazers_count": it.get("stargazers_count", 0),
+            "forks_count": it.get("forks_count", 0),
+            "open_issues_count": it.get("open_issues_count", 0),
+            "pushed_at": (it.get("pushed_at") or "")[:10],
+            "archived": bool(it.get("archived", False)),
+            "default_branch": it.get("default_branch", ""),
+            "html_url": it.get("html_url", ""),
+        }, ensure_ascii=False)
+    except (httpx.TimeoutException, httpx.HTTPError) as e:
+        return _err("github", f"请求异常: {e}")
+    except Exception as e:
+        agent_logger.error(f"fetch_github_repo_meta error: {e}")
         return _err("github", f"解析异常: {e}")

@@ -272,7 +272,7 @@ def create_main_agent(
     from .tools.web_fetch import web_fetch, install_skill
     from .tools.webintel_api import (
         fetch_github_releases, fetch_hackernews_top, fetch_arxiv_papers,
-        search_github_repos,
+        search_github_repos, fetch_github_repo_meta,
     )
     from .tools.hitl_tools import request_order_info
     from .tools.download_sandbox_file import download_sandbox_file, list_sandbox_files
@@ -283,7 +283,7 @@ def create_main_agent(
                     download_sandbox_file, list_sandbox_files,
                     generate_document, generate_table_report,
                     fetch_github_releases, fetch_hackernews_top, fetch_arxiv_papers,
-                    search_github_repos]
+                    search_github_repos, fetch_github_repo_meta]
     all_tools = mcp_tools + custom_tools
 
     agent_logger.info(
