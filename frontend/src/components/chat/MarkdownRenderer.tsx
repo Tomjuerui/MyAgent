@@ -24,6 +24,49 @@ const rehypePlugins: PluggableList = [
 // 表格分隔行，形如 |---|---| 或 |:--|--:|
 const TABLE_DELIM_ROW = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
+// 全文档围栏行计数（判断有没有围栏没配上对）
+const FENCE_LINE_GLOBAL = /^[ \t]*(?:```|~~~)/gm;
+// 正文/标题行尾直接粘了围栏记号：'## screenshot_paths```json[]'
+const GLUED_FENCE = /^(\S.*?)(`{3,}|~{3,})(.*)$/;
+// 围栏记号后面又粘着内容：'```json{' / '```json[]'
+const GLUED_FENCE_BODY = /^([\w+#.-]*)([[{].*)$/;
+
+/**
+ * 修「围栏记号粘在正文行尾」的坏 markdown：
+ *   '## screenshot_paths```json[]'   ← 标题 + 开围栏 + 内容挤成一行
+ *   '```'                            ← 这行随即被解析成「开围栏」，把后面整个报告吞进代码块
+ * 模型漏换行时把开围栏记号粘到了前一行，剩下的收尾记号反而被当成开围栏 —— 表格、标题全部
+ * 退化成等宽源码。历史消息已经这样存进库了，只能在渲染前归一化。
+ * 只在「围栏行数为奇数」（必然有一处没配对）时才动手，正常消息里的行内 ``` 一律不碰；
+ * 拆完仍然不配对就整条放弃，避免把好内容改坏。
+ */
+function repairGluedFences(md: string): string {
+  if ((md.match(FENCE_LINE_GLOBAL) || []).length % 2 === 0) return md;
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let changed = false;
+  for (const line of lines) {
+    const match = GLUED_FENCE.exec(line);
+    // 前缀不能以空白/反引号/波浪号结尾：前者是散文里顺口提到行内 ``` 的写法，
+    // 后者是「用 4 个反引号包住含 3 个反引号的内容」这类合法嵌套围栏
+    if (!match || /[\s`~]$/.test(match[1])) {
+      out.push(line);
+      continue;
+    }
+    out.push(match[1]);
+    const body = GLUED_FENCE_BODY.exec(match[3]);
+    if (body) {
+      out.push(`${match[2]}${body[1]}`, body[2]);
+    } else {
+      out.push(`${match[2]}${match[3]}`);
+    }
+    changed = true;
+  }
+  if (!changed) return md;
+  const repaired = out.join("\n");
+  return (repaired.match(FENCE_LINE_GLOBAL) || []).length % 2 === 0 ? repaired : md;
+}
+
 /**
  * 修「表题被粘在表头行上」的坏 markdown：
  *   '### 表1：发版节奏对比表| 框架 | 版本 | … |'   ← 缺换行
@@ -230,7 +273,9 @@ function MarkdownRenderer({ content }: { content: string }) {
       rehypePlugins={rehypePlugins}
       components={components}
     >
-      {repairAtxHeadings(repairGluedTableHeaders(content))}
+      {repairAtxHeadings(
+        repairGluedTableHeaders(repairGluedFences(content))
+      )}
     </ReactMarkdown>
   );
 }
