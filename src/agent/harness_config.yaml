@@ -17,7 +17,7 @@ phases:
 
 # 评审器配置（由 RubricMiddleware 消费）
 review:
-  max_iterations: 3          # 单次 rubric 最多评审迭代次数
+  max_iterations: 1          # 单次 rubric 最多评审迭代次数（采购 demo 降噪：评审打回会造成重复建单）
   # grader 独立模型（网关上的模型名）。留空/null 用主 LLM。
   # grader 是 create_agent + 结构化输出，用主模型（deepseek-v4.1-flash 推理型）
   # 单次评审要 20-40s 长推理才出判定；换 kimi-k2.6 后实测 ~4-7s、单次调用出判定。
@@ -27,37 +27,29 @@ review:
 
 # 任务类型识别关键词（用于自动选择 rubric）
 task_types:
-  release_tracking:
-    keywords: [发版, 更新日志, changelog, releases, 版本]
-  community_sentiment:
-    keywords: [舆情, 热帖, 讨论, 社区, 评论]
-  tech_report:
-    keywords: [研报, 报告, 对比, 趋势, 分析]
+  procurement_order:
+    keywords: [下单, 采购, 订单, 新增订单, 修改订单, 创建订单, 审批, 收货, 发货]
+  procurement_analysis:
+    keywords: [分析, 对比, 统计, 趋势, 图表, 报表, 供应商, 元器件, 库存盘点]
+  inventory_op:
+    keywords: [入库, 出库, 盘点, 预警, 库存]
 
 # 各任务类型的评审标准（"什么算完成"）
-# 技术情报类的硬校验：来源可追溯（source_url 必须真实存在于采集结果中）
 rubrics:
   default: |
-    1. 完整回答用户问题，未遗漏关键信息
-    2. 所有数据均来自真实工具调用（mcp_browser_*），未编造
-    3. 输出 Markdown，列表数据用表格
-    4. 若目标域名被安全闸门拦截（domain_not_allowed / blocked_target 等错误码），如实向用户说明被拒原因与允许访问的域名范围即视为完成，不得反复重试或编造数据
+    1. 已完成用户请求的核心操作
+    2. 回答使用中文
 
-  release_tracking: |
-    1. 报告含至少 2 条可点击的来源 URL（http/https），且 URL 归属白名单域名
-    2. 版本号、发布日期与采集到的页面内容逐项一致，无推测填充
-    3. 引用了 mcp_extract_table 提取的真实表格数据，而非模型臆造版本序列
+  procurement_order: |
+    1. 已调用订单工具（order_create / order_update / order_update_status）且返回 code=200
+    2. 回答中包含订单编号与结果说明
 
-  community_sentiment: |
-    1. 热帖/讨论条目附来源 URL，且可追溯到采集结果
-    2. 热度判断有可量化依据（票数/评论数/时间分布），非主观断言
-    3. 标注数据采集时间点
+  procurement_analysis: |
+    1. 给出了分析结论
+    2. 结论引用工具返回的数据
 
-  tech_report: |
-    1. 对比结论每条都能在 comparison_table 中找到数据支撑
-    2. 明确标注数据采集时间点（技术情报有时效性）
-    3. 未将不同来源的版本号混用比较
-    4. 已调用 generate_document 生成研报文件，且最终回答包含 /api/download/ 可点击下载链接
+  inventory_op: |
+    1. 入/出库操作返回 code=200
 
 # 可观测性配置
 observability:
