@@ -9,22 +9,22 @@ const USER_ID = "user-001";
 
 const CARDS: CapabilityCard[] = [
   {
-    icon: "release",
-    title: "Agent 框架发版追踪",
-    description: "采集主流框架 releases 页，提取版本表与变更条目",
-    prompt: "分析上周主流 Agent 框架（LangGraph / CrewAI / AutoGen）的发版动态",
+    icon: "inventory",
+    title: "库存预警查询",
+    description: "查出所有低于安全库存的元器件，给出补货建议",
+    prompt: "查一下当前库存预警，哪些元器件低于安全库存，建议补多少",
   },
   {
-    icon: "sentiment",
-    title: "社区舆情摘要",
-    description: "抓取技术社区热帖，按热度量化汇总关注焦点",
-    prompt: "抓取 HackerNews 今日 AI 相关热帖，输出舆情摘要",
+    icon: "order",
+    title: "创建采购订单",
+    description: "按需求创建采购订单，走人工审批流程",
+    prompt: "帮我采购 100 个 STM32 主控芯片，创建采购订单",
   },
   {
     icon: "analysis",
-    title: "技术路线对比研报",
-    description: "多来源特性覆盖度对比，产出带图表和来源链接的研报",
-    prompt: "对比 LangGraph 与 CrewAI 的特性覆盖度，生成带图表的研报",
+    title: "供应商分析对比",
+    description: "对比供应商信用评级与供货能力，生成图表报告",
+    prompt: "对比几家供应商的信用评级和供货能力，生成图表报告",
   },
 ];
 
@@ -47,8 +47,8 @@ export default function WelcomeScreen({ onPromptClick, children }: Props) {
     ? [
         {
           icon: "analysis",
-          title: "快速生成研报",
-          description: "基于你的画像一键生成个性化研报",
+          title: "快速采购分析",
+          description: "基于你的画像一键生成采购分析",
           prompt: quickPrompt,
         },
         ...CARDS,
@@ -59,10 +59,10 @@ export default function WelcomeScreen({ onPromptClick, children }: Props) {
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex min-h-full w-full max-w-[var(--content-width)] flex-col justify-center px-6 pb-14 pt-8">
         <h1 className="text-center text-[30px] font-normal leading-[1.25] tracking-tight text-ink-700 md:text-[38px]">
-          今天要追踪哪条技术动态
+          今天要处理什么采购任务
         </h1>
         <p className="mx-auto mt-3 max-w-[46ch] text-center text-[14px] leading-relaxed text-ink-400">
-          发版页 / 社区热帖 / 论文摘要，所有结论附来源链接
+          供应商 / 元器件 / 采购订单 / 库存，全程人工审批、订单流转可追溯
         </p>
 
         <div className="mt-9">{children}</div>
@@ -80,7 +80,7 @@ export default function WelcomeScreen({ onPromptClick, children }: Props) {
 
         <div className="mt-7 flex items-center justify-center gap-2">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-go" />
-          <span className="ic-metric">只读网页采集已接入</span>
+          <span className="ic-metric">ERP 数据台已接入，人机操作实时可见</span>
         </div>
       </div>
     </div>
