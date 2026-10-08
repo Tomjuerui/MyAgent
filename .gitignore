@@ -38,8 +38,14 @@ data/
 
 # ============ 本地文档（不随仓库提交） ============
 .workbuddy/
-docs/
+# 忽略 docs 下全部内容，但放行 README 引用的功能截图（否则 GitHub 上裂图）
+docs/*
+!docs/screenshots/
+docx/
 PYTHON_BACKEND_GUIDE.md
+
+# ============ 本地禁用配置（停用但保留在本机，不入库） ============
+*.disabled
 
 # ============ 日志 ============
 *.log
