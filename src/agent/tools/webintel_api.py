@@ -20,7 +20,7 @@ from ..log_utils import agent_logger
 
 # GitHub API 强制要求 User-Agent 头，否则 403；未认证限速 60 req/h（演示够用）
 _GH_HEADERS = {
-    "User-Agent": "DevEco-Intelligence/1.0",
+    "User-Agent": "ZhiHeng/1.0",
     "Accept": "application/vnd.github+json",
 }
 _TIMEOUT = 15.0
