@@ -199,16 +199,36 @@ try:
         plt.colorbar(im, ax=ax)
 
     elif chart_type == "radar":
-        labels = [item.get(x_field, str(i)) for i, item in enumerate(data)]
-        values = [float(item.get(y_field, 0)) for item in data]
-        angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
-        values_plot = values + values[:1]
-        angles += angles[:1]
-        ax = plt.subplot(111, polar=True)
-        ax.plot(angles, values_plot, 'o-', color='#2563EB', linewidth=2)
-        ax.fill(angles, values_plot, alpha=0.25, color='#2563EB')
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(labels)
+        if series_field:
+            # 多框架叠加：每个 series 一个多边形 + 图例。
+            # 数据格式: [{"label":"性能","value":8,"framework":"LangGraph"}, ...]
+            labels = list(dict.fromkeys(item.get(x_field, "") for item in data))
+            series_names = list(dict.fromkeys(item.get(series_field, "") for item in data))
+            angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+            ax = plt.subplot(111, polar=True)
+            colors = plt.cm.Set2(np.linspace(0, 1, max(len(series_names), 1)))
+            for idx, series in enumerate(series_names):
+                vals = [float(next((item.get(y_field, 0) for item in data
+                         if item.get(x_field) == xl and item.get(series_field) == series), 0))
+                        for xl in labels]
+                vp = vals + vals[:1]
+                ap = angles + angles[:1]
+                ax.plot(ap, vp, 'o-', linewidth=2, label=series, color=colors[idx % len(colors)])
+                ax.fill(ap, vp, alpha=0.12, color=colors[idx % len(colors)])
+            ax.set_xticks(angles)
+            ax.set_xticklabels(labels)
+            ax.legend(loc="upper right", bbox_to_anchor=(1.25, 1.1))
+        else:
+            labels = [item.get(x_field, str(i)) for i, item in enumerate(data)]
+            values = [float(item.get(y_field, 0)) for item in data]
+            angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+            values_plot = values + values[:1]
+            angles += angles[:1]
+            ax = plt.subplot(111, polar=True)
+            ax.plot(angles, values_plot, 'o-', color='#2563EB', linewidth=2)
+            ax.fill(angles, values_plot, alpha=0.25, color='#2563EB')
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(labels)
 
     elif chart_type == "waterfall":
         labels = [item.get(x_field, str(i)) for i, item in enumerate(data)]
@@ -267,6 +287,7 @@ def generate_chart(
             candlestick(K线图), ohlc(OHLC图), sankey(桑基图), kpi_card(KPI卡片)
         data: 数据JSON字符串。格式: [{"label":"名称","value":数值}, ...]
             分组图: [{"supplier":"A","price":25,"part":"贴片电容"}, ...]
+            多框架雷达图: [{"label":"性能","value":8,"framework":"LangGraph"}, ...]，series_field="framework"
             散点图: [{"x":10,"y":20}, ...]
         title: 图表标题
         x_field: X轴/分类字段名（默认"label"）
