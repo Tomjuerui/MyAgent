@@ -1,25 +1,78 @@
-# DevEco-Intelligence DeepAgent — 开源生态技术情报智能体
+# 知衡（ZhiHeng）— 电子元器件采购智能体
 
-> 基于 LangGraph + DeepAgent + 自研 Playwright-MCP 的多智能体长链路协同系统，自动完成「采集 → 分析 → 研报」全流程，严格遵循 Harness Engineering（Planning → Executing → Review → Result）。
+> 基于 LangGraph + DeepAgent 的多智能体采购助手：用自然语言完成「供应商 / 元器件 / 采购订单 / 库存」全流程操作。下单、改单等危险动作强制人工审批（HITL），订单推进到「已收货」时库存自动入库，每一步工具调用都落库成可追溯的执行链路。
+
+---
+
+## 功能预览
+
+### 1. 采购任务对话入口
+![欢迎页](docs/screenshots/01-welcome.png)
+
+打开即是采购语境：四张能力卡（快速采购分析 / 库存预警查询 / 创建采购订单 / 供应商分析对比）把高频采购任务一键送到模型，侧边栏的「ERP 数据台」直达人机协同控制台。
+
+### 2. Harness 四阶段工作流（Planning → Executing → Review → Result）
+![Harness 阶段条](docs/screenshots/02-harness-phases.png)
+
+复杂采购任务不再是一段黑盒回答：顶部细线随阶段推进逐格点亮，规划清单与思考链实时展开，让「模型正在干什么」对使用者可见。
+
+### 3. HITL 人工审批（下单前置闸门）
+![审批卡](docs/screenshots/03-approval-card.png)
+
+订单创建/修改被硬性拦在审批闸门后：模型提交的完整订单载荷（单号、明细、金额）直接摊在审批卡上，人点「批准执行」才真正落库，避免模型自作主张下单。
+
+### 4. 子 Agent 委派 + 工具调用明细
+![子 Agent 与工具调用](docs/screenshots/04-subagent-tools.png)
+
+主 Agent 把「下单」派给采购订单专家、把「分析」派给采购分析专家；每一步 `part_query` / `order page` / `order create`、沙箱执行、子智能体都逐条列出并标注状态，上下文不被原始 DOM/日志污染。
+
+### 5. ERP 数据台：采购订单流转
+![ERP 数据台-订单](docs/screenshots/05-erp-orders.png)
+
+独立的数据台把 ERP 四张表（供应商 / 元器件 / 采购订单 / 库存）摊平可视；人的手工操作与 Agent 的操作写同一套后端，订单状态流转一眼可查。
+
+### 6. ERP 数据台：收货自动入库（人机协同闭环）
+![ERP 数据台-库存](docs/screenshots/06-erp-inventory.png)
+
+订单推进到「已收货」的同一事务里对明细逐条入库，库存数字自动增加——「人下单 → 审批 → 收货 → 库存变化」形成可验证的闭环，数据台 3s 轮询实时反映。
+
+### 7. 采购分析图表（沙箱内 Matplotlib）
+![采购分析图表](docs/screenshots/07-chart.png)
+
+图表由沙箱内的 Matplotlib 渲染（26 种图表类型，镜像自带中文字体、中文标签不乱码），生成物经 `/api/download` 直出到对话——避免「模型只口述数字」的幻觉。
+
+### 8. 全链路执行 Trace
+![执行链路 Trace](docs/screenshots/08-trace.png)
+
+每一轮提问的模型调用、工具调用、中间件步骤全部落库：耗时、token 进/出、调用次数、失败/中断逐项可查，定位「哪一步慢/错」不用翻日志。
+
+### 9. 会话管理
+![侧边栏会话管理](docs/screenshots/09-sidebar.png)
+
+会话按时间倒序沉淀，可搜索、可删除、可跨轮次追溯；刷新/分享都通过 URL 恢复到同一会话。
 
 ---
 
 ## 项目简介
 
-DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察**的 AI Agent。它接收自然语言指令，自主规划调研路径，通过**结构化 API 优先 + 浏览器兜底**的采集通道获取 GitHub Releases、HackerNews 热帖、arXiv 论文摘要等公开数据，执行交叉比对分析，并最终自动生成带趋势图表的可追溯研报：
+知衡（ZhiHeng）是一个面向**电子元器件采购管理**的 AI Agent。它接收自然语言指令，自主判断是直接回答还是拆解为多步骤任务，通过 **ERP MCP 工具**操作采购域数据，危险动作走审批，最终给出带数据与图表的结构化结果：
 
-- 开源框架发版追踪（LangGraph / CrewAI / AutoGen 等）
-- 社区舆情摘要（HackerNews 热帖量化）
-- 技术路线对比研报（特性覆盖度矩阵 + 发版周期趋势，带图表与来源 URL）
+- **供应商管理**：查询/搜索供应商，查看信用评级与合作状态
+- **元器件管理**：按分类/供应商筛选元器件，查看价格与规格
+- **采购订单全生命周期**：创建（需审批）→ 修改 → 状态流转（待审核 → 已审核 → 已发货 → 已收货 → 已完成）
+- **收货自动入库**：订单推进到「已收货」时，对订单明细逐条入库（与状态更新同一事务）
+- **库存管理**：库存预警、盘点、入库/出库
+- **数据分析与可视化**：采购趋势、供应商对比，生成带图表的分析报告
+- **人机协同数据台**：独立前端操作 ERP 四张表，与 Agent 共享同一后端状态
 
 核心能力：
 
-- 自研 Playwright-MCP 网页采集（3 工具 + 安全闸门：scheme/DNS/SSRF/白名单/限速）
-- 主子 Agent 架构（ecosystem-crawler 采集提纯 → tech-analyst 分析出稿），规避 DOM 噪声污染主 Agent 上下文
-- Harness 四阶段状态机 + Rubric 评审中间件，硬校验来源 URL 与数据真实性，拒绝幻觉
-- HITL 双层闸门：前端审批卡（UI 放行）+ MCP 域名白名单（真正拦域名）
-- 全链路可视化 Trace（每次工具调用耗时 / token 归因）
-- **ERP 采购域作为第二业务域保留**，验证骨架可复用（见文末「第二业务域」）
+- **Harness 四阶段状态机 + Rubric 评审中间件**：硬校验输出与真实工具数据，不达标自动打回重做，拒绝幻觉
+- **HITL 审批闸门**：`order_create` / `order_update` 触发前端审批卡，人到场放行才落库
+- **主子 Agent 架构**：采购分析与订单操作分派给专职子 Agent，隔离原始数据噪声，保护主 Agent 上下文
+- **自研执行链 Trace**：每次工具调用耗时、token 归因、失败原因落库 `agent_traces`
+- **Docker 沙箱执行**：图表/文档在资源受限、无网络的隔离容器内生成
+- **MongoDB 全链路持久化**：会话、展示消息、checkpoint、偏好 Store、Trace 全部落库
 
 ---
 
@@ -27,14 +80,14 @@ DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察*
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| **LLM** | 本地 workbuddy2api-hub 反代网关 | 宿主 `:8788` 反代，`LLM_BASE_URL` 固定 `http://host.docker.internal:8788/v1`，模型由 `LLM_MODEL` 指定 |
+| **LLM** | 本地 workbuddy2api-hub 反代网关 | 宿主 `:8788` 反代，`LLM_BASE_URL` 固定 `http://host.docker.internal:8788/v1`，模型由 `LLM_MODEL` 指定（可切换 deepseek / hy / glm 等） |
 | **Agent 框架** | DeepAgent + LangGraph | 状态图引擎，支持中断/恢复/子 Agent |
-| **MCP 协议** | FastMCP + streamable-http | WebIntel-MCP（网页采集）+ ERP-MCP（采购工具域） |
+| **MCP 协议** | FastMCP + SSE / streamable-http | ERP-MCP（23 采购工具，`:9000`）；WebIntel-MCP 网页采集（`:9002`，可选） |
 | **Web 框架** | FastAPI + Uvicorn | SSE 流式响应 |
-| **前端** | Next.js + React + TailwindCSS | 流式对话 UI + 中断交互 + Trace 面板 |
-| **数据库** | MongoDB (Motor/Pymongo) | 会话/消息/Store/链路 Trace 持久化 |
-| **沙箱** | Docker SDK + 7 层安全防护 | 隔离代码执行环境（图表/文档生成） |
-| **图表** | Matplotlib + Pandas | 折线/柱状/雷达等图表生成 |
+| **前端** | Next.js + React + TailwindCSS | 流式对话 UI + 审批交互 + Trace 面板 + ERP 数据台 |
+| **数据库** | MongoDB (Motor/Pymongo) | 会话/消息/checkpoint/Store/Trace 持久化 |
+| **沙箱** | Docker SDK + 多层安全防护 | 隔离代码执行环境（图表/文档生成） |
+| **图表** | Matplotlib + Pandas | 26 种图表类型（折线/柱状/雷达/瀑布…） |
 | **语言** | Python 3.11+ / TypeScript | 后端 Python，前端 TypeScript |
 
 ---
@@ -42,97 +95,94 @@ DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察*
 ## 系统架构
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Frontend (Next.js :3000)                       │
-│   SSE 流式对话 + HITL 审批卡 + 阶段条 + Trace 面板 + 历史管理      │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTP / SSE
-┌────────────────────────────▼────────────────────────────────────┐
-│              Backend API (FastAPI :8000)                          │
-│   chat.py (SSE 流/中断/恢复) + history.py + agent_loader.py       │
-│   MongoDBSaver + MongoDBStore + agent_traces（链路 Trace 落库）    │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────────┐
-│              Agent Core (DeepAgent + LangGraph)                   │
-│  ┌──────────┐ ┌───────────────┐ ┌──────────────┐ ┌───────────┐  │
-│  │ LLM 网关 │ │ 9 中间件      │ │ 技术情报子Agent│ │ 采购子Agent│  │
-│  │ :8788    │ │ (Harness/Rubric│ │ crawler      │ │ analyst   │  │
-│  │          │ │ /HITL/Memory…)│ │ tech-analyst │ │ order     │  │
-│  └──────────┘ └───────────────┘ └──────────────┘ └───────────┘  │
-│  Tools: 结构化API(3) + WebIntel MCP(3) + ERP MCP(23) + 自定义(图表/文档/下载…)   │
-└───────────┬───────────────────────────────────┬──────────────────┘
-            │ streamable-http                    │ MCP (SSE)
-┌───────────▼────────────────────┐  ┌───────────▼──────────────────┐
-│  WebIntel-MCP (:9002)          │  │  ERP MCP Server (:9000)       │
-│  mcp_browser_navigate          │  │  suppliers/parts/orders/      │
-│  mcp_extract_table             │  │  inventory = 23 tools         │
-│  mcp_take_screenshot           │  └───────────┬──────────────────┘
-│  安全闸门: scheme→DNS→SSRF→    │              │ HTTP REST
-│  白名单→限速→(DEMO rewrite)    │  ┌───────────▼──────────────────┐
-└───────────┬────────────────────┘  │  ERP 后端 (:8081)             │
-            │                       │  mock-erp（FastAPI+SQLite）   │
-   ┌────────┴─────────┐             └──────────────────────────────┘
-   │ 真实外网(白名单) │
-   └────────┬─────────┘
-   ┌────────┴─────────┐
-   │ mock-web (:8080) │  ← DEMO_MODE=true 时改写 host 到此处（离线演示）
-   │ nginx 假页面     │
-   └──────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js :3000)                          │
+│   SSE 流式对话 + HITL 审批卡 + Harness 阶段条 + Trace 面板            │
+│   历史管理 + 用户画像编辑器  ║  ERP 数据台 /erp（人机协同）              │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ HTTP / SSE
+┌──────────────────────────────▼──────────────────────────────────────┐
+│              Backend API (FastAPI :8000)                            │
+│   chat.py(SSE 流/中断/恢复) + history.py + profile.py + agent_loader  │
+│   MongoDBSaver + MongoDBStore + display_messages + agent_traces      │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────┐
+│              Agent Core (DeepAgent + LangGraph)                      │
+│  ┌──────────┐ ┌────────────┐ ┌──────────────────┐ ┌───────────────┐  │
+│  │ LLM 网关 │ │ 14 中间件  │ │ procurement-     │ │ procurement-  │  │
+│  │ :8788    │ │ Harness/   │ │ analyst          │ │ order         │  │
+│  │          │ │ Rubric/HITL│ │ (分析+图表)      │ │ (订单+审批)   │  │
+│  └──────────┘ └────────────┘ └──────────────────┘ └───────────────┘  │
+│  Tools: ERP MCP(23) + 自定义(14：图表/文档/搜索/下载/信息补充…)         │
+└───────────┬─────────────────────────────────────┬───────────────────┘
+            │ MCP (SSE)                            │ Docker SDK
+┌───────────▼──────────────────┐   ┌──────────────▼───────────────────┐
+│  ERP MCP Server (:9000)      │   │  Docker 沙箱 (erp-sandbox)        │
+│  supplier / part / order /   │   │  资源限额 + cap 收紧 + tmpfs +    │
+│  inventory = 23 tools        │   │  no-new-privileges；自带中文字体  │
+└───────────┬──────────────────┘   │  （Matplotlib 图表渲染）          │
+            │ HTTP REST            └──────────────────────────────────┘
+┌───────────▼──────────────────┐
+│  Mock ERP 后端 (:8081)        │
+│  FastAPI + SQLite（供应商 16 / 元器件 37 / 订单 / 库存）             │
+└──────────────────────────────┘
 ```
+
+> 采集域（WebIntel-MCP `:9002`）作为可选的浏览器采集能力保留，采购主链路不依赖它：`webintel` 未启动时 backend 自动降级为「仅 ERP 工具」（`src/agent/tools/mcp_client.py`）。
 
 ---
 
 ## 核心功能
 
-### 1. 采集双通道：结构化 API 优先 + 自研 Playwright-MCP 兜底
+### 1. 采购订单全生命周期 + 收货自动入库
 
-**API 优先通道**（`src/agent/tools/webintel_api.py`）：三个白名单域（github / HN / arXiv）都有官方结构化 API，URL 由代码构造、httpx 直连，秒级返回，无需浏览器与域名审批：
+订单状态机严格线性、不可跳级：`0 待审核 → 1 已审核 → 2 已发货 → 3 已收货 → 4 已完成`（`src/mock_erp/db.py` 的 `NEXT_STATUS`）。订单推进到「已收货」时，在**同一事务**里对订单明细逐条入库（`src/mock_erp/main.py` 的 `order_update_status`）——任一明细失败整体回滚，杜绝「状态已收货但库存未过账」。因状态无回退路径，同一订单不可能重复入库。
 
-- `fetch_github_releases`：GitHub Releases 列表（版本号/日期/变更/URL）
-- `fetch_hackernews_top`：HN 热帖（标题/热度/评论数/时间）
-- `fetch_arxiv_papers`：arXiv 论文摘要（标题/摘要/日期/链接）
+### 2. HITL 审批闸门
 
-**浏览器兜底**（自研 Playwright-MCP，独立 FastMCP 服务 `D:\桌面\Brower_Use\webintel-mcp`，只读依赖）。MVP 白名单三域默认全走 API，浏览器仅在以下场景使用：API 失败/超时的重试路径、白名单外的 JS 渲染页面（需 HITL 审批并扩白名单）、截图取证。同时它承载「自研 MCP + 五重安全闸门」的工程展示价值：
+- **UI 层**：`src/agent/config.py` 的 `INTERRUPT_ON_TOOLS` 声明 `order_create` / `order_update`（以及白名单外的浏览器导航），命中即挂起，前端弹出审批卡（`frontend/src/components/interrupt/ApprovalCard.tsx`），展示完整订单载荷供人确认。
+- **恢复**：`POST /api/chat/{thread_id}/resume` 携带 `approve/reject` 决策继续执行；并发子 Agent 挂起多个 interrupt 时按 `interrupt_id` 逐一声明。
 
-- `mcp_browser_navigate`：无头 Chrome 导航 + Readability 提纯 Markdown
-- `mcp_extract_table`：表格 → JSON/CSV
-- `mcp_take_screenshot`：截图落盘共享卷 `/artifacts`
+### 3. 子 Agent 委派（YAML 声明式）
 
-安全闸门按序执行：`scheme → DNS → 私有 IP/SSRF → 域名白名单 → 限速 → (DEMO 改写)`。拒绝即 MCP tool error，错误码稳定：`scheme_not_allowed / blocked_target / domain_not_allowed / rate_limited / navigation_timeout / extraction_failed`。
+| 子 Agent | 职责 | 工具集 |
+|---|---|---|
+| procurement-order | 采购订单专家：下单/改单/状态跟踪，信息缺失先向用户询问 | order_* + part_query/search + supplier_query/get + request_order_info |
+| procurement-analyst | 采购分析专家：供应商/元器件/库存/订单深度分析 + 出图 | supplier_* + part_* + inventory_* + order_search_details/statistics + generate_chart |
 
-### 2. Harness 工作流（Planning → Executing → Review → Result）
-- **Planning**：拆解调研 TodoList（前端实时展示）
-- **Executing**：委派子 Agent / 调 MCP / 沙箱执行
-- **Review**：Rubric 评审器核验来源 URL 与数据真实性，不达标自动打回重做
-- **Result**：结构化输出，前端阶段条逐格点亮
+配置见 `src/agent/subagents/configs/*.yaml`（工具集 / 系统提示词 / 委派协议 / `interrupt_on` 全配置化，改流程不改代码）。
 
-### 3. HITL 双层闸门
-- **UI 层**：`interrupt_on` 工具触发前端审批卡（访问外部网站 / 生成研报外发）
-- **MCP 层**：域名白名单真正拦截（`domain_not_allowed`），approve 只是 UI 放行
+### 4. Harness 四阶段 + Rubric 评审
 
-### 4. 子 Agent 委派（YAML 声明式）
-| 子 Agent | 域 | 职责 | 工具 |
-|---|---|---|---|
-| ecosystem-crawler | 技术情报 | API 优先采集 + 提纯，不回传原始 DOM | search_github_repos + fetch_* 3 工具 + mcp_browser_* 3 工具（兜底） |
-| tech-analyst | 技术情报 | 交叉比对分析 + 图表 + 研报 | generate_chart / generate_document / generate_table_report |
-| procurement-analyst | 采购（第二域） | 采购数据分析 + 图表 | ERP MCP 工具 |
-| procurement-order | 采购（第二域） | 订单 CRUD + 审批 | ERP MCP 工具 |
+阶段与评审标准抽离到 `src/agent/harness_config.yaml`（DSL）：`planning → executing → reviewing → result`。`HarnessPhaseMiddleware` 驱动阶段流转并向模型注入对应 rubric；`RubricMiddleware` 用独立快模型（`kimi-k2.6`）对结果做结构化判定，未达标打回重做，前端以评审卡展示判定明细。
 
-子 Agent 配置见 `src/agent/subagents/configs/*.yaml`（工具集 / 系统提示词 / 委派协议 / interrupt_on）。
+### 5. Docker 沙箱内的图表/文档生成
 
-### 5. 9 层中间件栈
+所有 `generate_chart` / `generate_document` 调用都在 `erp-sandbox` 容器内执行（`src/agent/backends/`），沙箱带资源上限、cap 收紧、tmpfs 与 `no-new-privileges`；镜像自带中文字体，避免 Matplotlib 中文渲染成方块（`docker/sandbox.Dockerfile`）。生成物提取到 `src/download/`，经 `/api/download/{filename}` 暴露。
+
+### 6. 全链路执行 Trace
+
+`src/agent/trace/` 把每轮提问的模型调用、工具调用、中间件步骤（`kind=llm/tool/node/step`）连同耗时、token 进/出、失败原因落库 `agent_traces`；前端 `TracePanel` 支持真实时间/压缩空闲/按序等宽三种时间轴、类型过滤与搜索。
+
+### 7. 14 层中间件栈
+
 | # | 中间件 | 职责 |
 |---|--------|------|
 | 1 | SandboxHealthMiddleware | 沙箱健康检查 + 自动重连 |
-| 2 | ContextInjectionMiddleware | 用户上下文注入（工厂模式隔离） |
-| 3 | SkillsSyncMiddleware | 技能文件夹级增量同步 |
-| 4 | UserSkillsRestoreMiddleware | 用户自定义技能恢复 |
-| 5 | ToolsSummarizationMiddleware | 工具调用摘要监控 |
-| 6 | MemoryUpdateMiddleware | 用户偏好自动提取 |
-| 7 | SandboxCircuitBreakerMiddleware | 沙箱熔断器（三态模型） |
-| 8 | ModelCallLimitMiddleware | 模型调用次数限制 |
-| 9 | ToolCallLimitMiddleware | 工具调用次数限制 |
+| 2 | HarnessPhaseMiddleware | 阶段状态机 + rubric 注入 |
+| 3 | ContextInjectionMiddleware | 用户上下文注入（工厂模式隔离） |
+| 4 | SkillsSyncMiddleware | 技能文件夹级增量同步 |
+| 5 | UserSkillsRestoreMiddleware | 用户自定义技能恢复 |
+| 6 | ToolsSummarizationMiddleware | 工具调用摘要监控 |
+| 7 | MemoryUpdateMiddleware | 用户偏好自动提取 |
+| 8 | SandboxCircuitBreakerMiddleware | 沙箱熔断器（三态模型） |
+| 9 | BrowserRouteGuardMiddleware | 浏览器路由硬拦截（采集 API 优先落到机制） |
+| 10 | ToolDedupMiddleware | 同轮只读工具去重 |
+| 11 | StallBreakerMiddleware | 停摆熔断（连续无新信息硬停，防空转烧 token） |
+| 12 | RubricMiddleware | 结构化评审 + 打回重做 |
+| 13 | ModelCallLimitMiddleware | 模型调用次数上限 |
+| 14 | ToolCallLimitMiddleware | 工具调用次数上限 |
 
 ---
 
@@ -143,25 +193,21 @@ DevEco-Intelligence 是一个面向**开源开发者生态与技术趋势洞察*
 前置要求：Docker Desktop 已启动；项目根目录存在 `.env` 并填入 `LLM_API_KEY`（本地 workbuddy2api-hub 网关已在宿主 `:8788` 启动）；可从 `.env.example` 复制。
 
 ```bash
-docker compose build      # 首次构建镜像（后端 Python + 前端 Next standalone + webintel-mcp）
-docker compose up -d      # 启动全部 8 个服务
+docker compose build      # 首次构建镜像（后端 Python + 前端 Next + 沙箱）
+docker compose up -d      # 启动全部服务
 docker compose ps         # 查看状态（mongo/mock-erp/mcp-server 为 healthy）
 docker compose logs -f backend   # 跟踪后端日志
 docker compose down       # 停止（MongoDB 数据卷保留）
 docker compose down -v    # 停止并清空数据
 ```
 
-浏览器访问 http://localhost:3000。
+浏览器访问 http://localhost:3000 （数据台：http://localhost:3000/erp）。
 
-**离线演示（无需外网）**：
+**只跑采购主链路**（跳过网页采集域，省一个 3.8GB 镜像）：
 
 ```bash
-DEMO_MODE=true docker compose up -d
+docker compose up -d mongo sandbox mock-erp mcp-server backend frontend
 ```
-
-`DEMO_MODE=true` 下，结构化 API 工具（`fetch_*`）直接返回内置 mock 数据（与 mock-web 假数据对齐），不发起任何网络请求；webintel 闸门对浏览器兜底请求改写 host 到 `mock-web`（nginx 假页面，:8080）。backend 同时注入「当前为离线演示」系统提示词。三张指令卡（发版追踪 / 社区舆情 / 技术路线研报）可全离线跑通。
-
-**真实模式（默认，`.env` 中 `DEMO_MODE=false`）**：白名单域名 `github.com, news.ycombinator.com, arxiv.org` 走真实外网；本机实测 arxiv.org 最快（<1s），github.com 较慢（~12s），news.ycombinator.com 可能超时。
 
 ### 方式二：本地进程手动启动
 
@@ -176,10 +222,8 @@ DEMO_MODE=true docker compose up -d
 #### 启动顺序
 
 ```
-MongoDB → Docker 沙箱 → mock-erp(:8081) → ERP MCP(:9000) → webintel-mcp(:9002) → Backend(:8000) → Frontend(:3000)
+MongoDB → Docker 沙箱 → mock-erp(:8081) → ERP MCP(:9000) → Backend(:8000) → Frontend(:3000)
 ```
-
-各服务启动命令：
 
 ```bash
 # 1. MongoDB
@@ -195,13 +239,10 @@ python -m src.mock_erp.main
 # 4. ERP MCP Server（:9000）
 python -m src.mcp_server.server_main
 
-# 5. WebIntel-MCP（:9002，见外部仓 D:\桌面\Brower_Use\webintel-mcp）
-#    在 webintel-mcp 仓内按其文档启动，或直接 docker compose 启动
-
-# 6. 后端 API（:8000）
+# 5. 后端 API（:8000）
 python -m src.api_view.web_main
 
-# 7. 前端（:3000）
+# 6. 前端（:3000）
 cd frontend && npm run dev
 ```
 
@@ -215,14 +256,14 @@ cd frontend && npm run dev
 MyAgent/
 ├── frontend/                          # Next.js 前端
 │   └── src/
-│       ├── app/                       # App Router（page.tsx）
+│       ├── app/                       # App Router：page.tsx / erp/page.tsx
 │       ├── components/
-│       │   ├── chat/                  # 对话区（消息/输入/工具调用/阶段条）
-│       │   ├── interrupt/             # HITL 审批卡 / 信息补充
-│       │   ├── sidebar/               # 历史/搜索
+│       │   ├── chat/                  # 对话区（消息/输入/工具调用/阶段条/评审卡）
+│       │   ├── interrupt/             # HITL 审批卡 / 信息补充表单
+│       │   ├── sidebar/               # 历史/搜索/画像入口
 │       │   └── trace/                 # 执行链路 Trace 面板
 │       ├── hooks/                     # useChat / useSSE / useHistory
-│       └── lib/                       # API / SSE 解析 / 类型定义
+│       └── lib/                       # API / SSE 解析 / erpApi / 类型定义
 │
 ├── src/                               # Python 后端
 │   ├── agent/
@@ -230,21 +271,21 @@ MyAgent/
 │   │   ├── config.py                  # 全局配置 + INTERRUPT_ON_TOOLS
 │   │   ├── harness.py                 # Harness 四阶段状态机
 │   │   ├── harness_config.yaml        # 阶段/评审标准 DSL
-│   │   ├── backends/                  # Docker 沙箱后端（7 层防护）
-│   │   ├── middlewares/               # 自定义中间件
-│   │   ├── tools/                     # 自定义工具（API 采集/chart/document/download…）
+│   │   ├── backends/                  # Docker 沙箱后端
+│   │   ├── middlewares/               # 14 个自定义中间件
+│   │   ├── tools/                     # 自定义工具（图表/文档/搜索/下载/MCP 客户端）
 │   │   ├── trace/                     # 执行链路 Trace 采集/落库
 │   │   ├── subagents/                 # 子 Agent（configs/*.yaml 声明式）
-│   │   └── memory/                    # 系统提示词
-│   ├── api_view/                      # FastAPI Web 层（chat/history/download）
+│   │   └── memory/                    # 系统提示词与操作手册
+│   ├── api_view/                      # FastAPI Web 层（chat/history/profile/download）
 │   ├── mcp_server/                    # ERP MCP 网关（23 工具）
-│   ├── mock_erp/                      # 本地 Mock ERP（FastAPI+SQLite）
+│   ├── mock_erp/                      # 本地 Mock ERP（FastAPI+SQLite，契约见 CONTRACT.md）
 │   ├── skills/                        # 技能文件
 │   └── download/                      # 生成文件下载目录
 │
-├── docker/                            # Dockerfile（backend/frontend）+ mock-web 假页面
-├── docker-compose.yml                 # 8 服务编排
-├── docs/                              # PRD / 实施计划 / DEMO_GUIDE / 设计拆解
+├── docker/                            # Dockerfile（backend/frontend/sandbox）
+├── docker-compose.yml                 # 服务编排
+├── docs/                              # PRD / 设计拆解 / 实施计划 / 截图
 ├── .env / .env.example                # 环境变量
 └── requirements.txt                   # Python 依赖
 ```
@@ -256,49 +297,40 @@ MyAgent/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/chat/stream` | SSE 流式对话 |
-| POST | `/api/chat/{thread_id}/resume` | 中断恢复 |
+| POST | `/api/chat/{thread_id}/resume` | 中断恢复（审批/补充） |
 | GET | `/api/chat/{thread_id}/state` | 获取中断状态 |
 | GET | `/api/chat/{thread_id}/history` | 获取消息历史 |
 | GET | `/api/chat/{thread_id}/trace/runs` | 会话执行链路 run 列表 |
 | GET | `/api/chat/{thread_id}/trace` | 单次 run 的完整链路 |
 | GET | `/api/history/{user_id}` | 获取会话列表 |
 | DELETE | `/api/history/{thread_id}` | 删除会话 |
+| GET/PUT | `/api/profile/{user_id}` | 用户画像读写 |
 | GET | `/api/download/{filename}` | 下载沙箱生成文件 |
 | GET | `/health` | 健康检查 |
+
+> ERP 数据台经前端 `/erp-api/*` 反代到 mock-erp `/api/*`（`frontend/next.config.ts`），规避 mock-erp 无 CORS 的问题。
 
 ---
 
 ## 项目亮点
 
-1. **采集双通道**：结构化 API 优先（三域 httpx 直连，秒级返回）+ 自研 Playwright-MCP 兜底（五重安全闸门：scheme → DNS → SSRF/私有 IP → 域名白名单 → 限速）。
-2. **主子 Agent 架构防上下文污染**：原始数据由 ecosystem-crawler 消化提纯，主 Agent 只见纯净 Markdown/JSON。
-3. **Harness 状态机 + Rubric 硬校验**：拒绝大模型幻觉，来源 URL 与数据真实性不达标自动打回重做。
-4. **HITL 双层闸门**：UI 审批卡 + MCP 域名拦截，双重合规。
-5. **全链路可视化 Trace**：`agent_traces` 落库，精确追溯每次 MCP 调用耗时、DOM 提取字符数、token 归因。
-6. **离线演示防挂**：`DEMO_MODE=true` 无缝路由到内置 nginx mock 站点，面试演示不受网络代理影响。
-7. **MongoDB 全链路持久化**：MongoDBSaver（checkpoint）+ MongoDBStore（偏好）+ display_messages + conversations + agent_traces。
-8. **YAML 声明式子 Agent**：工具集/提示词/委派协议/中断策略全配置化，改流程不改代码。
-
----
-
-## 第二业务域：ERP 采购（骨架复用验证）
-
-本项目骨架最初为电子元器件采购助手构建，改造为技术情报 Agent 后，ERP 采购域作为**第二业务域**保留，用于验证「Agent 骨架 + Harness + HITL + MCP + 沙箱」的可复用性：
-
-- `procurement-analyst` / `procurement-order` 子 Agent（`src/agent/subagents/configs/*.yaml`）
-- ERP MCP Server（`src/mcp_server/`，23 个采购工具）
-- Mock ERP（`src/mock_erp/`，FastAPI + SQLite，契约见 `src/mock_erp/CONTRACT.md`）
-
-接入真实 ERP 只需修改 `ERP_BASE_URL`，Agent 与 MCP 层零改动。两个业务域共享同一套 Harness 流程、HITL 中断、沙箱与 Trace 基础设施。
+1. **业务闭环可验证**：下单 → 审批 → 发货 → 收货 → 库存自动增加，全链路断言可脚本化复现（人机双前端共享同一后端状态）。
+2. **HITL 审批闸门**：`order_create` / `order_update` 硬中断，模型无法绕过人工确认落库。
+3. **主子 Agent 架构防上下文污染**：原始查询结果由专职子 Agent 消化提纯，主 Agent 只见纯净 Markdown/JSON。
+4. **Harness 状态机 + Rubric 硬校验**：拒绝幻觉，输出无真实工具数据支撑即打回重做。
+5. **全链路可视化 Trace**：落库 `agent_traces`，精确追溯每次工具调用耗时、token 进/出与失败原因。
+6. **沙箱隔离执行**：图表/文档在限额容器内生成，自带中文字体，宿主机零污染。
+7. **失控治理**：停摆熔断、同轮工具去重、模型/工具调用上限，避免 Agent 空转烧 token。
+8. **YAML 声明式**：子 Agent 的工具集/提示词/委派协议/中断策略、Harness 阶段与评审标准全配置化。
 
 ---
 
 ## 开发说明
 
 - 修改 Agent 行为：编辑 `src/agent/memory/prompts.py`（系统提示词）
-- 修改评审标准：编辑 `src/agent/harness_config.yaml`（rubrics）
-- 添加新工具：在 `src/agent/tools/` 创建，在 `main_agent.py` 注册
+- 修改评审标准 / 阶段：编辑 `src/agent/harness_config.yaml`
+- 添加新工具：在 `src/agent/tools/` 创建，在 `src/agent/main_agent.py` 注册
 - 修改子 Agent：编辑 `src/agent/subagents/configs/*.yaml`
 - 中断注册：`src/agent/config.py` 的 `INTERRUPT_ON_TOOLS`
-- 离线演示开关：`.env` 的 `DEMO_MODE`（webintel 与 backend 双开关）
-- 采集白名单：`.env` 的 `CRAWL_ALLOW_DOMAINS`（改后需 `docker compose restart webintel-mcp`）
+- ERP 数据契约：`src/mock_erp/CONTRACT.md`
+- 接入真实 ERP：只需修改 `ERP_BASE_URL`，Agent 与 MCP 层零改动
